@@ -1,0 +1,28 @@
+# Copyright (c) 2020, The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+description: GPIO keyboard custom controller
+
+compatible: "zmk,kscan-gpio-custom"
+
+include: kscan.yaml
+
+properties:
+  in-addr-gpios:
+    type: phandle-array
+    required: true
+  in-data-gpios:
+    type: phandle-array
+    required: true
+  output-gpios:
+    type: phandle-array
+    required: true
+  debounce-period:
+    type: int
+    default: 5
+  cols:
+    type: int
+    required: true
+  polling-interval-msec:
+    type: int
+    default: 25

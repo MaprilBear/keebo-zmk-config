@@ -1,0 +1,9 @@
+file_format: "1"
+id: keebo
+name: Keebo
+type: shield
+url: https://github.com/MaprilBear/Keebo
+requires: [nrf5340dk_nrf5340_cpuapp]
+features:
+  - keys
+siblings:
