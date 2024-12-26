@@ -61,4 +61,4 @@ int display_thread(void)
 
 K_THREAD_DEFINE(dsp_thread, 4096,
                 display_thread, NULL, NULL, NULL,
-                0, 0, 0);
+                1, 0, 0);

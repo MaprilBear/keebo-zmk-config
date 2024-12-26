@@ -13,7 +13,8 @@
         compatible = "zmk,kscan-gpio-custom";
         wakeup-source;
         cols = <14>;
-        debounce-period = <10>;
+        debounce-period = <5>;
+        polling-interval-msec = <1>;
         in-addr-gpios
         = <&gpio1 3 GPIO_ACTIVE_HIGH>
         , <&gpio1 2 GPIO_ACTIVE_HIGH>
