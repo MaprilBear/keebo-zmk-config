@@ -1,3 +1,4 @@
+name: kscan_custom
 build:
   cmake: .
   kconfig: Kconfig

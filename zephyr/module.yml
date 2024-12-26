@@ -1,3 +1,6 @@
+name: keebo
+
 build:
   settings:
     board_root: .
+
