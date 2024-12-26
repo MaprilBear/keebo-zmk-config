@@ -20,6 +20,8 @@
                 &kp LSHFT  &kp Z  &kp X  &kp C  &kp V  &kp B  &kp N  &kp M  &kp COMMA &kp PERIOD &kp FSLH &kp RSHFT &kp LEFT &kp DOWN
                 &kp LCTRL &kp LWIN &kp LALT               &kp SPACE                 &kp  RALT  &mo 1 &kp K_APP &kp RCTRL &kp RIGHT
             >;
+
+            sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;
         };
 
         fn_layer {
@@ -31,5 +33,8 @@
                 &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans &trans 
             >;
         };
+
+        sensor-bindings = <&trans>;
+        
     };
  };

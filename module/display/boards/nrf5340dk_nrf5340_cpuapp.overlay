@@ -1,5 +1,5 @@
 &uart0 {
-	/delete-property/ hw-flow-control;
+	status = "okay";
 };
 
 / {
@@ -106,6 +106,6 @@
 	compatible = "nordic,nrf-gpio-forwarder";
 	status = "okay";
 	uart {
-		gpios = <&gpio1 1 0>, <&gpio1 0 0>, <&gpio0 29 0>, <&gpio0 10 0>;
+		gpios = <&gpio1 1 0>, <&gpio1 0 0>, <&gpio1 3 0>, <&gpio0 10 0>;
 	};
 };
