@@ -9,28 +9,51 @@
         zmk,underglow = &led_strip;
     };
 
+    &spi2 {
+        status = "okay";
+        cs-gpios = <&gpio1 3 GPIO_ACTIVE_LOW>;
+        shifter: 595@0 {
+            compatible = "zmk,gpio-595";
+            status = "okay";
+            gpio-controller;
+            spi-max-frequency = <200000>;
+            reg = <0>;
+            #gpio-cells = <2>;
+            ngpios = <8>;
+        };
+    };
+
     kscan0: kscan {
-        compatible = "zmk,kscan-gpio-custom";
+        // compatible = "zmk,kscan-gpio-custom";
+        // wakeup-source;
+        // cols = <14>;
+        // debounce-period = <5>;
+        // polling-interval-msec = <1>;
+        // in-addr-gpios
+        // = <&gpio1 3 GPIO_ACTIVE_HIGH>
+        // , <&gpio1 2 GPIO_ACTIVE_HIGH>
+        // , <&gpio0 27 GPIO_ACTIVE_HIGH>
+        // ;
+        // in-data-gpios
+        // = <&gpio1 15 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+        // , <&gpio1 14 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+        // ;
+        // output-gpios
+        // = <&gpio1 13 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+        // , <&gpio1 12 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+        // , <&gpio1 11 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+        // , <&gpio1 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+        // , <&gpio1 9  (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
+        // ;
+
+        compatible = "zmk,kscan-gpio-matrix";
         wakeup-source;
-        cols = <14>;
-        debounce-period = <5>;
-        polling-interval-msec = <1>;
-        in-addr-gpios
-        = <&gpio1 3 GPIO_ACTIVE_HIGH>
-        , <&gpio1 2 GPIO_ACTIVE_HIGH>
-        , <&gpio0 27 GPIO_ACTIVE_HIGH>
-        ;
-        in-data-gpios
-        = <&gpio1 15 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
-        , <&gpio1 14 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
-        ;
-        output-gpios
-        = <&gpio1 13 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
-        , <&gpio1 12 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
-        , <&gpio1 11 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
-        , <&gpio1 10 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
-        , <&gpio1 9  (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>
-        ;
+        diode-direction = "col2row";
+        col-gpios
+            = <>
+
+        row-gpios
+            = <>
     };
 
     default_transform: keymap_transform0 {
@@ -64,15 +87,15 @@
 &pinctrl {
     spi3_default: spi3_default {
         group1 {
-            psels = <NRF_PSEL(SPIM_MOSI, 0, 7)>,
-                    <NRF_PSEL(SPIM_SCK, 0, 6)>;
+            psels = <NRF_PSEL(SPIM_MOSI, 1, 10)>,
+                    <NRF_PSEL(SPIM_SCK, 1, 11)>;
         };
     };
 
     spi3_sleep: spi3_sleep {
         group1 {
-            psels = <NRF_PSEL(SPIM_MOSI, 0, 7)>,
-                    <NRF_PSEL(SPIM_SCK, 0, 6)>;
+            psels = <NRF_PSEL(SPIM_MOSI, 1, 10)>,
+                    <NRF_PSEL(SPIM_SCK, 1, 11)>;
             low-power-enable;
         };
     };
