@@ -1,0 +1,9 @@
+if SHIELD_KEYPAD
+
+config ZMK_KEYBOARD_NAME
+    default "Keypad"
+
+config SPI
+    default y
+
+endif # SHIELD_KEYPAD

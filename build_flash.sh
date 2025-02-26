@@ -1,0 +1,2 @@
+./build.sh
+./flash.sh
