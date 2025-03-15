@@ -143,7 +143,7 @@ int display_thread(void)
 
 	lv_log_register_print_cb(my_log_cb);
 
-	k_sleep(K_MSEC(2000));
+	k_sleep(K_MSEC(1000)); // let the flash disk settle
 
 	// register file system
 	//filesys_init();

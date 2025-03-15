@@ -206,48 +206,48 @@ static void setup_disk(void)
 	}
 
 	/* Allow log messages to flush to avoid interleaved output */
-	k_sleep(K_MSEC(50));
+	// k_sleep(K_MSEC(50));
 
-	printf("Mount %s: %d\n", fs_mnt.mnt_point, rc);
+	// printf("Mount %s: %d\n", fs_mnt.mnt_point, rc);
 
-	rc = fs_statvfs(mp->mnt_point, &sbuf);
-	if (rc < 0) {
-		printf("FAIL: statvfs: %d\n", rc);
-		return;
-	}
+	// rc = fs_statvfs(mp->mnt_point, &sbuf);
+	// if (rc < 0) {
+	// 	printf("FAIL: statvfs: %d\n", rc);
+	// 	return;
+	// }
 
-	printf("%s: bsize = %lu ; frsize = %lu ;"
-	       " blocks = %lu ; bfree = %lu\n",
-	       mp->mnt_point,
-	       sbuf.f_bsize, sbuf.f_frsize,
-	       sbuf.f_blocks, sbuf.f_bfree);
+	// printf("%s: bsize = %lu ; frsize = %lu ;"
+	//        " blocks = %lu ; bfree = %lu\n",
+	//        mp->mnt_point,
+	//        sbuf.f_bsize, sbuf.f_frsize,
+	//        sbuf.f_blocks, sbuf.f_bfree);
 
-	rc = fs_opendir(&dir, mp->mnt_point);
-	printf("%s opendir: %d\n", mp->mnt_point, rc);
+	// rc = fs_opendir(&dir, mp->mnt_point);
+	// printf("%s opendir: %d\n", mp->mnt_point, rc);
 
-	if (rc < 0) {
-		LOG_ERR("Failed to open directory");
-	}
+	// if (rc < 0) {
+	// 	LOG_ERR("Failed to open directory");
+	// }
 
-	while (rc >= 0) {
-		struct fs_dirent ent = { 0 };
+	// while (rc >= 0) {
+	// 	struct fs_dirent ent = { 0 };
 
-		rc = fs_readdir(&dir, &ent);
-		if (rc < 0) {
-			LOG_ERR("Failed to read directory entries");
-			break;
-		}
-		if (ent.name[0] == 0) {
-			printf("End of files\n");
-			break;
-		}
-		printf("  %c %u %s\n",
-		       (ent.type == FS_DIR_ENTRY_FILE) ? 'F' : 'D',
-		       ent.size,
-		       ent.name);
-	}
+	// 	rc = fs_readdir(&dir, &ent);
+	// 	if (rc < 0) {
+	// 		LOG_ERR("Failed to read directory entries");
+	// 		break;
+	// 	}
+	// 	if (ent.name[0] == 0) {
+	// 		printf("End of files\n");
+	// 		break;
+	// 	}
+	// 	printf("  %c %u %s\n",
+	// 	       (ent.type == FS_DIR_ENTRY_FILE) ? 'F' : 'D',
+	// 	       ent.size,
+	// 	       ent.name);
+	// }
 
-	(void)fs_closedir(&dir);
+	// (void)fs_closedir(&dir);
 
 	return;
 }
@@ -256,7 +256,7 @@ int usb_mass_main(void)
 {
 	int ret;
 
-	setup_disk();
+	//setup_disk();
 
 	//k_sleep(K_MSEC(10000));
 
@@ -274,6 +274,8 @@ int usb_mass_main(void)
 	return 0;
 }
 
+SYS_INIT(setup_disk, APPLICATION, 99);
+
 K_THREAD_DEFINE(usb_mass_thread, 2048,
 	usb_mass_main, NULL, NULL, NULL,
-	1, 0, 0);
+	2, 0, 0);
