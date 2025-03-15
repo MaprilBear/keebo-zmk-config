@@ -15,6 +15,8 @@
 #include <lvgl_input_device.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/fs/fs.h>
+#include <malloc.h>
+
 LOG_MODULE_REGISTER(display_app, CONFIG_ZMK_LOG_LEVEL);
 
 #define LV_FS_FATFS_LETTER 'N'
@@ -69,13 +71,22 @@ LOG_MODULE_REGISTER(display_app, CONFIG_ZMK_LOG_LEVEL);
 
 LV_IMG_DECLARE(miku_miku);
 
+LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST uint8_t image_buffer[27584];
+
+lv_img_dsc_t custom_image = {
+  .header.cf = LV_IMG_CF_INDEXED_4BIT,
+  .header.always_zero = 0,
+  .header.reserved = 0,
+  .header.w = 320,
+  .header.h = 172,
+  .data_size = 27584,
+  .data = image_buffer
+};
 
 
 void my_log_cb(const char* buf){
 	printk("%s\n", buf);
 }
-
-#define NUM_FRAMES 31
 
 lv_obj_t * custom_anim_img;
 
@@ -83,11 +94,40 @@ void next_frame(){
 	//LV_LOG_INFO("Loading next frame");
 	char buffer[50];
 	static int count = 0;
-	
-	snprintk(buffer, 50, "/NAND:/frame_%d.bin", count++ % NUM_FRAMES);
+	snprintk(buffer, 50, "/NAND:/frame_%d.bin\0", count);
 	LV_LOG_INFO("Loading frame %s", buffer);
-	lv_img_set_src(custom_anim_img, buffer);
+
+	// load entire file into buffer
+	lv_fs_file_t f;
+	lv_res_t res = lv_fs_open(&f, buffer, LV_FS_MODE_RD);
+	if (res != LV_FS_RES_OK){
+		LV_LOG_ERROR("File %s failed to open", buffer);
+		if (count > 0){
+			count = 0;
+			next_frame();
+			return;
+		} else {
+			return;
+		}
+	}
+	count++;
+	int read_bytes;
+	lv_fs_seek(&f, 4, LV_FS_SEEK_SET); // skip over random junk
+	lv_fs_read(&f, image_buffer, custom_image.data_size, &read_bytes);
+	if (read_bytes != custom_image.data_size){
+		LV_LOG_ERROR("Failed to read entire file, only read %d bytes", read_bytes);
+	}
+
+	LV_LOG_INFO("read %d bytes", read_bytes);
+
+	lv_fs_close(&f);
+
+	lv_img_cache_invalidate_src(custom_anim_img);
+
+	lv_img_set_src(custom_anim_img, &custom_image);
 	LV_LOG_INFO("Finished loading frame");
+
+	//k_sleep(K_MSEC(1000));
 }
 
 
