@@ -14,7 +14,7 @@
             bindings = <
                 &kp Q &kp W &kp E 
                 &kp A &kp S &kp D
-                &kp LSHFT &kp X &kp C
+                &kp Z &kp X &kp C
             >;
 
             sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;

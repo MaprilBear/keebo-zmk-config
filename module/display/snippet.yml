@@ -3,6 +3,6 @@ name: display_custom_snippet
 boards:
   nrf5340dk_nrf5340_cpuapp:
     append:
-      EXTRA_DTC_OVERLAY_FILE: boards/nrf5340dk_nrf5340_cpuapp.overlay
+      # EXTRA_DTC_OVERLAY_FILE: boards/nrf5340dk_nrf5340_cpuapp.overlay
       EXTRA_CONF_FILE: prj.conf
   
