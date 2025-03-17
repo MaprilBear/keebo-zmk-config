@@ -16,72 +16,162 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/fs/fs.h>
 #include <malloc.h>
+#include <zephyr/random/random.h>
 
 LOG_MODULE_REGISTER(display_app, CONFIG_ZMK_LOG_LEVEL);
 
 #define LV_FS_FATFS_LETTER 'N'
 
-//LV_IMG_DECLARE(caitlyn);
-//LV_IMG_DECLARE(subaru);
-//LV_IMG_DECLARE(subaru_eat);
-//LV_IMG_DECLARE(promare);
-// LV_IMG_DECLARE(frame_0);
-// LV_IMG_DECLARE(frame_1);
-// LV_IMG_DECLARE(frame_2);
-// LV_IMG_DECLARE(frame_3);
-// LV_IMG_DECLARE(frame_4);
-// LV_IMG_DECLARE(frame_5);
-// LV_IMG_DECLARE(frame_6);
-// LV_IMG_DECLARE(frame_7);
-// LV_IMG_DECLARE(frame_8);
-// LV_IMG_DECLARE(frame_9);
-// LV_IMG_DECLARE(frame_10);
-// LV_IMG_DECLARE(frame_11);
-// LV_IMG_DECLARE(frame_12);
-// LV_IMG_DECLARE(frame_13);
-// LV_IMG_DECLARE(frame_14);
-// LV_IMG_DECLARE(frame_15);
-// LV_IMG_DECLARE(frame_16);
-// LV_IMG_DECLARE(frame_17);
-// LV_IMG_DECLARE(frame_18);
-// LV_IMG_DECLARE(frame_19);
-// LV_IMG_DECLARE(frame_20);
-// LV_IMG_DECLARE(frame_21);
-//LV_IMG_DECLARE(frame_22);
-//LV_IMG_DECLARE(frame_23);
-//LV_IMG_DECLARE(frame_24);
-// LV_IMG_DECLARE(frame_40);
-// LV_IMG_DECLARE(frame_41);
-// LV_IMG_DECLARE(frame_42);
-// LV_IMG_DECLARE(frame_43);
-// LV_IMG_DECLARE(frame_44);
-// LV_IMG_DECLARE(frame_45);
-// LV_IMG_DECLARE(frame_46);
-// LV_IMG_DECLARE(frame_47);
-// LV_IMG_DECLARE(frame_48);
-// LV_IMG_DECLARE(frame_49);
-// LV_IMG_DECLARE(frame_50);
-// LV_IMG_DECLARE(frame_51);
-// LV_IMG_DECLARE(frame_52);
-// LV_IMG_DECLARE(frame_53);
-// LV_IMG_DECLARE(frame_54);
-// LV_IMG_DECLARE(frame_55);
-//LV_IMG_DECLARE(frame_56);
-//LV_IMG_DECLARE(frame_57);
+#define DISPLAY_DEVICE DT_CHOSEN(zephyr_display)
+const struct device *const display_dev = DEVICE_DT_GET(DISPLAY_DEVICE);
 
-LV_IMG_DECLARE(miku_miku);
+#define IMAGE_SPLITS 2
+#define IMAGE_SIZE (320 * 172 * 2)
+#define REFRESH_RATE 1
+#define REFRESH_PERIOD (K_MSEC(1000 / REFRESH_RATE))
 
-LV_ATTRIBUTE_MEM_ALIGN LV_ATTRIBUTE_LARGE_CONST uint8_t image_buffer[27584];
+__attribute__ ((aligned (4))) uint8_t image_buffer1[IMAGE_SIZE / 2];
+__attribute__ ((aligned (4))) uint8_t image_buffer2[IMAGE_SIZE / 2];
 
-lv_img_dsc_t custom_image = {
-  .header.cf = LV_IMG_CF_INDEXED_4BIT,
-  .header.always_zero = 0,
-  .header.reserved = 0,
-  .header.w = 320,
-  .header.h = 172,
-  .data_size = 27584,
-  .data = image_buffer
-};
+K_SEM_DEFINE(display_sema, 0, 1);
+K_SEM_DEFINE(read1_sema, 1, 1);
+K_SEM_DEFINE(read2_sema, 1, 1);
+K_SEM_DEFINE(flush1_sema, 0, 1);
+K_SEM_DEFINE(flush2_sema, 0, 1);
+
+
+void timer_thread(){
+	k_sem_give(&display_sema);
+}
+
+K_TIMER_DEFINE(display_timer, timer_thread, NULL);
+
+lv_obj_t * canvas1;
+lv_obj_t * canvas2;
+lv_draw_rect_dsc_t rect_dsc;
+lv_draw_label_dsc_t label_dsc;
+uint8_t colors[3];
+
+void canvas_init(){
+	canvas1 = lv_canvas_create(lv_scr_act());
+	canvas2 = lv_canvas_create(lv_scr_act());
+
+	lv_canvas_set_buffer(canvas1, &image_buffer1, 320, 172 / 2, LV_IMG_CF_TRUE_COLOR);
+	lv_canvas_set_buffer(canvas2, &image_buffer2, 320, 172 / 2, LV_IMG_CF_TRUE_COLOR);
+
+	lv_draw_rect_dsc_init(&rect_dsc);
+	rect_dsc.radius = 10;
+	rect_dsc.bg_opa = LV_OPA_80;
+	//rect_dsc.bg_grad.dir = LV_GRAD_DIR_HOR;
+	//rect_dsc.bg_grad.stops[0].color = lv_palette_main(LV_PALETTE_RED);
+	//rect_dsc.bg_grad.stops[1].color = lv_palette_main(LV_PALETTE_BLUE);
+	rect_dsc.border_width = 2;
+	rect_dsc.border_opa = LV_OPA_90;
+	rect_dsc.border_color = lv_color_black();
+	rect_dsc.shadow_width = 5;
+	rect_dsc.shadow_ofs_x = 5;
+	rect_dsc.shadow_ofs_y = 5;
+
+	lv_draw_label_dsc_init(&label_dsc);
+}
+
+void canvas_update(){
+	sys_rand_get(colors, 3);
+	label_dsc.color = lv_color_make(colors[0], colors[1], colors[2]);
+}
+
+void canvas_draw(lv_obj_t* canvas, int y){
+	LV_LOG_INFO("Drawing canvas");
+	lv_canvas_draw_rect(canvas, 20, 90, 150, 70, &rect_dsc);
+	lv_canvas_draw_text(canvas, 40, 100, 100, &label_dsc, "GAY");
+	LV_LOG_INFO("Finished drawing canvas");
+}
+
+void read_thread(){
+	lv_fs_file_t file;
+	k_timer_start(&display_timer, REFRESH_PERIOD, REFRESH_PERIOD);
+
+	while(1){
+		k_sem_take(&read1_sema, K_FOREVER);
+		canvas_update(0);
+		load:
+		k_sem_take(&display_sema, K_FOREVER);
+		char buffer[50];
+		static int count = 0;
+		snprintk(buffer, 50, "/NAND:/frame_%d.bin\0", count);
+		LV_LOG_INFO("Loading frame %s", buffer);
+		lv_res_t res = lv_fs_open(&file, buffer, LV_FS_MODE_RD);
+		if (res != LV_FS_RES_OK){
+			LV_LOG_ERROR("File %s failed to open", buffer);
+			//k_sleep(K_MSEC(100));
+			count = 0;
+			goto load;
+		}
+		count++;
+
+		LV_LOG_INFO("Reading 1st half into buffer");
+		int read_bytes;
+		lv_fs_seek(&file, 4, LV_FS_SEEK_SET); // skip over random junk
+		lv_fs_read(&file, image_buffer1, IMAGE_SIZE / 2, &read_bytes);
+		if (read_bytes != IMAGE_SIZE / 2){
+			LV_LOG_ERROR("Failed to read entire selection, only read %d bytes", read_bytes);
+		}
+		LV_LOG_INFO("Finished reading 1st half");
+
+		canvas_draw(canvas1, 0);
+		
+		k_sem_give(&flush1_sema);
+		k_sem_take(&read2_sema, K_FOREVER);
+
+		LV_LOG_INFO("Reading 2nd half into buffer");
+		lv_fs_seek(&file, 4 + (IMAGE_SIZE / 2), LV_FS_SEEK_SET); // skip over random junk
+		lv_fs_read(&file, image_buffer2, IMAGE_SIZE / 2, &read_bytes);
+		if (read_bytes != IMAGE_SIZE / 2){
+			LV_LOG_ERROR("Failed to read entire selection, only read %d bytes", read_bytes);
+		}
+
+		LV_LOG_INFO("Finished reading 2nd half");
+
+		lv_fs_close(&file);
+
+		canvas_draw(canvas2, 0);
+
+		k_sem_give(&flush2_sema);
+	}
+}
+
+void flush_thread(){
+	struct display_buffer_descriptor display_desc;
+	display_desc.buf_size = IMAGE_SIZE / 2;
+	display_desc.width = 320;
+	display_desc.height = 172 / 2;
+	display_desc.pitch = 0;
+
+	while (1){
+		k_sem_take(&flush1_sema, K_FOREVER);
+
+		LV_LOG_INFO("Flushing 1st half");
+		display_write(display_dev, 0, 0, &display_desc, image_buffer1);
+		LV_LOG_INFO("Finished flushing 1st half");
+
+		k_sem_give(&read1_sema);
+		k_sem_take(&flush2_sema, K_FOREVER);
+
+		LV_LOG_INFO("Flushing 2nd half");
+		display_write(display_dev, 0, 86, &display_desc, image_buffer2);
+		LV_LOG_INFO("Finished flushing 2nd half");
+
+		k_sem_give(&read2_sema);
+	}
+}
+
+K_THREAD_DEFINE(reading_thread, 1024,
+	read_thread, NULL, NULL, NULL,
+	2, 0, 0);
+
+K_THREAD_DEFINE(flushing_thread, 1024,
+		flush_thread, NULL, NULL, NULL,
+		2, 0, 0);
 
 
 void my_log_cb(const char* buf){
@@ -91,7 +181,8 @@ void my_log_cb(const char* buf){
 lv_obj_t * custom_anim_img;
 
 void next_frame(){
-	//LV_LOG_INFO("Loading next frame");
+
+	LV_LOG_INFO("Loading next frame");
 	char buffer[50];
 	static int count = 0;
 	snprintk(buffer, 50, "/NAND:/frame_%d.bin\0", count);
@@ -113,8 +204,8 @@ void next_frame(){
 	count++;
 	int read_bytes;
 	lv_fs_seek(&f, 4, LV_FS_SEEK_SET); // skip over random junk
-	lv_fs_read(&f, image_buffer, custom_image.data_size, &read_bytes);
-	if (read_bytes != custom_image.data_size){
+	lv_fs_read(&f, image_buffer1, IMAGE_SIZE, &read_bytes);
+	if (read_bytes != IMAGE_SIZE){
 		LV_LOG_ERROR("Failed to read entire file, only read %d bytes", read_bytes);
 	}
 
@@ -122,10 +213,22 @@ void next_frame(){
 
 	lv_fs_close(&f);
 
-	lv_img_cache_invalidate_src(custom_anim_img);
-
-	lv_img_set_src(custom_anim_img, &custom_image);
 	LV_LOG_INFO("Finished loading frame");
+
+	// draw it our selves :)
+	struct display_buffer_descriptor display_desc;
+	display_desc.buf_size = 110080;
+	display_desc.width = 320;
+	display_desc.height = 172;
+	display_desc.pitch = 0;
+	LV_LOG_INFO("Flushing frame to display");
+	//display_write(display_dev, 0, 0, &display_desc, image_buffer);
+	LV_LOG_INFO("Finished flushing");
+
+	///lv_img_cache_invalidate_src(custom_anim_img);
+
+	//lv_img_set_src(custom_anim_img, &custom_image);
+	
 
 	//k_sleep(K_MSEC(1000));
 }
@@ -141,76 +244,34 @@ int display_thread(void)
 		return 0;
 	}
 
-	lv_log_register_print_cb(my_log_cb);
+	//lv_log_register_print_cb(my_log_cb);
 
 	k_sleep(K_MSEC(1000)); // let the flash disk settle
 
-	// register file system
-	//filesys_init();
-
-	// load all frames 
-
-	// lv_obj_t * test = lv_img_create(lv_scr_act());
-	// lv_img_set_src(test, "/NAND:/MIKU.bin");
-
-	//k_sleep(K_MSEC(2000));
-
-	//lv_example_bar_3();
-	// display_blanking_off(display_dev);
-	// while (1) {
-	// 	LOG_DBG("tick!");
-	// 	lv_task_handler();
-	// 	//k_sleep(K_MSEC(100));
-	// }
-
-	
-	
-
-	//lv_obj_t* icon = lv_img_create(lv_scr_act());
-	
-	//lv_obj_t* icon2 = lv_img_create(lv_scr_act());
-	//lv_obj_t* gif = lv_gif_create(lv_scr_act());
-	//lv_img_set_src(icon, &frame_0);
-	//lv_img_set_src(icon2, &caitlyn);
-
-	// lv_gif_set_src(gif, &promare);
-	// lv_img_set_zoom(gif, 600);
-	// lv_obj_align(gif, LV_ALIGN_CENTER, 0, 0);
-	// lv_obj_set_style_bg_color(lv_scr_act(), lv_color_white(), LV_PART_MAIN);
-	//lv_task_handler();
-
-
-	// lv_obj_t * animimg0 = lv_animimg_create(lv_scr_act());
-	// lv_obj_center(animimg0);
-	// lv_animimg_set_src(animimg0, (const void **) anim_imgs, NUM_FRAMES);
-	// lv_animimg_set_duration(animimg0, 50000);
-	// lv_animimg_set_repeat_count(animimg0, LV_ANIM_REPEAT_INFINITE);
-	// lv_animimg_start(animimg0);
-
-	custom_anim_img = lv_img_create(lv_scr_act());
-	next_frame();
-
 	display_blanking_off(display_dev);
+
+	canvas_init();
+
+	k_sem_give(&display_sema);
+
+	return;
+
+	while (1){
+		next_frame();
+
+		
+	}
+	return;
+
 	
-
-	//bool temp = false;
-
 	
-
 	while (1) {
-		//LOG_DBG("tick!");
-		//lv_img_set_zoom(icon, 120);
 		LV_LOG_INFO("Ticking LVGL task handler");
 		lv_task_handler();
 		LV_LOG_INFO("Finished Ticking");
 		next_frame();
-		//k_yield();
-		//k_sleep(K_MSEC(1));
-		
 	}
 }
-
-
 
 K_THREAD_DEFINE(dsp_thread, 2048,
                 display_thread, NULL, NULL, NULL,
