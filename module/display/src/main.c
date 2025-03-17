@@ -27,7 +27,7 @@ const struct device *const display_dev = DEVICE_DT_GET(DISPLAY_DEVICE);
 
 #define IMAGE_SPLITS 2
 #define IMAGE_SIZE (320 * 172 * 2)
-#define REFRESH_RATE 1
+#define REFRESH_RATE 30
 #define REFRESH_PERIOD (K_MSEC(1000 / REFRESH_RATE))
 
 __attribute__ ((aligned (4))) uint8_t image_buffer1[IMAGE_SIZE / 2];
@@ -49,8 +49,12 @@ K_TIMER_DEFINE(display_timer, timer_thread, NULL);
 lv_obj_t * canvas1;
 lv_obj_t * canvas2;
 lv_draw_rect_dsc_t rect_dsc;
+lv_draw_rect_dsc_t fps_rect_dsc;
 lv_draw_label_dsc_t label_dsc;
+lv_draw_label_dsc_t fps_label_dsc;
 uint8_t colors[3];
+
+int16_t draw_pos = 0;
 
 void canvas_init(){
 	canvas1 = lv_canvas_create(lv_scr_act());
@@ -72,30 +76,69 @@ void canvas_init(){
 	rect_dsc.shadow_ofs_x = 5;
 	rect_dsc.shadow_ofs_y = 5;
 
+	lv_draw_rect_dsc_init(&fps_rect_dsc);
+	//rect_dsc.radius = 0;
+	rect_dsc.bg_opa = LV_OPA_50;
+	fps_rect_dsc.bg_color = lv_color_black();
+	//rect_dsc.bg_grad.dir = LV_GRAD_DIR_HOR;
+	//rect_dsc.bg_grad.stops[0].color = lv_palette_main(LV_PALETTE_RED);
+	//rect_dsc.bg_grad.stops[1].color = lv_palette_main(LV_PALETTE_BLUE);
+	fps_rect_dsc.border_width = 1;
+	fps_rect_dsc.border_opa = LV_OPA_90;
+	fps_rect_dsc.border_color = lv_color_white();
+
 	lv_draw_label_dsc_init(&label_dsc);
+	lv_draw_label_dsc_init(&fps_label_dsc);
+	fps_label_dsc.font = &lv_font_unscii_8;
+	fps_label_dsc.color = lv_color_white();
 }
 
 void canvas_update(){
 	sys_rand_get(colors, 3);
 	label_dsc.color = lv_color_make(colors[0], colors[1], colors[2]);
+
+	draw_pos = (draw_pos + 2) % 172;
 }
 
-void canvas_draw(lv_obj_t* canvas, int y){
+uint16_t fps = 0;
+
+void canvas_draw(lv_obj_t* canvas, lv_coord_t y){
+	
 	LV_LOG_INFO("Drawing canvas");
-	lv_canvas_draw_rect(canvas, 20, 90, 150, 70, &rect_dsc);
-	lv_canvas_draw_text(canvas, 40, 100, 100, &label_dsc, "GAY");
+	//lv_canvas_draw_rect(canvas, 20, draw_pos - y, 150, 70, &rect_dsc);
+	//lv_canvas_draw_text(canvas, 40, draw_pos - y, 150, &label_dsc, "GAY");
+
+	//lv_canvas_draw_rect(canvas, 0, 0 - y, 50, 50, &fps_rect_dsc);
+	char buffer[10];
+	snprintk(buffer, 10, "%02d FPS", fps % 100);
+	lv_canvas_draw_text(canvas, 260, 160 - y, 1000, &fps_label_dsc, buffer);
 	LV_LOG_INFO("Finished drawing canvas");
+	
 }
+
+uint32_t last_frame_time = 0;
 
 void read_thread(){
 	lv_fs_file_t file;
 	k_timer_start(&display_timer, REFRESH_PERIOD, REFRESH_PERIOD);
 
+	struct display_buffer_descriptor display_desc;
+	display_desc.buf_size = IMAGE_SIZE / 2;
+	display_desc.width = 320;
+	display_desc.height = 86;
+	display_desc.pitch = 0;
+
+	k_sleep(K_MSEC(1000));
+
 	while(1){
-		k_sem_take(&read1_sema, K_FOREVER);
+		//k_sem_take(&read1_sema, K_FOREVER);
 		canvas_update(0);
 		load:
 		k_sem_take(&display_sema, K_FOREVER);
+		uint32_t frame_time = k_cycle_get_32();
+		fps = 1000 / k_cyc_to_ms_floor32(frame_time - last_frame_time);
+		LV_LOG_INFO("Current FPS = %d, Elapsed time = %d", fps, k_cyc_to_ms_floor32(frame_time - last_frame_time));
+		last_frame_time = frame_time;
 		char buffer[50];
 		static int count = 0;
 		snprintk(buffer, 50, "/NAND:/frame_%d.bin\0", count);
@@ -103,7 +146,6 @@ void read_thread(){
 		lv_res_t res = lv_fs_open(&file, buffer, LV_FS_MODE_RD);
 		if (res != LV_FS_RES_OK){
 			LV_LOG_ERROR("File %s failed to open", buffer);
-			//k_sleep(K_MSEC(100));
 			count = 0;
 			goto load;
 		}
@@ -119,6 +161,8 @@ void read_thread(){
 		LV_LOG_INFO("Finished reading 1st half");
 
 		canvas_draw(canvas1, 0);
+
+		//display_write(display_dev, 0, 0, &display_desc, image_buffer1);
 		
 		k_sem_give(&flush1_sema);
 		k_sem_take(&read2_sema, K_FOREVER);
@@ -134,7 +178,9 @@ void read_thread(){
 
 		lv_fs_close(&file);
 
-		canvas_draw(canvas2, 0);
+		//display_write(display_dev, 0, 86, &display_desc, image_buffer2);
+
+		canvas_draw(canvas2, (lv_coord_t) 86);
 
 		k_sem_give(&flush2_sema);
 	}
@@ -144,7 +190,7 @@ void flush_thread(){
 	struct display_buffer_descriptor display_desc;
 	display_desc.buf_size = IMAGE_SIZE / 2;
 	display_desc.width = 320;
-	display_desc.height = 172 / 2;
+	display_desc.height = 86;
 	display_desc.pitch = 0;
 
 	while (1){
@@ -165,7 +211,7 @@ void flush_thread(){
 	}
 }
 
-K_THREAD_DEFINE(reading_thread, 1024,
+K_THREAD_DEFINE(reading_thread, 2048,
 	read_thread, NULL, NULL, NULL,
 	2, 0, 0);
 
@@ -251,6 +297,8 @@ int display_thread(void)
 	display_blanking_off(display_dev);
 
 	canvas_init();
+
+	k_sleep(K_MSEC(1000)); // let the flash disk settle
 
 	k_sem_give(&display_sema);
 
