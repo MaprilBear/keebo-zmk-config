@@ -27,7 +27,7 @@ const struct device *const display_dev = DEVICE_DT_GET(DISPLAY_DEVICE);
 
 #define IMAGE_SPLITS 2
 #define IMAGE_SIZE (320 * 172 * 2)
-#define REFRESH_RATE 30
+#define REFRESH_RATE 24
 #define REFRESH_PERIOD (K_MSEC(1000 / REFRESH_RATE))
 
 __attribute__ ((aligned (4))) uint8_t image_buffer1[IMAGE_SIZE / 2];
@@ -118,6 +118,8 @@ void canvas_draw(lv_obj_t* canvas, lv_coord_t y){
 
 uint32_t last_frame_time = 0;
 
+#define NUM_FRAMES 11
+
 void read_thread(){
 	lv_fs_file_t file;
 	k_timer_start(&display_timer, REFRESH_PERIOD, REFRESH_PERIOD);
@@ -141,6 +143,10 @@ void read_thread(){
 		last_frame_time = frame_time;
 		char buffer[50];
 		static int count = 0;
+		if (count >= NUM_FRAMES)
+		{
+			count %= NUM_FRAMES;
+		}
 		snprintk(buffer, 50, "/NAND:/frame_%d.bin\0", count);
 		LV_LOG_INFO("Loading frame %s", buffer);
 		lv_res_t res = lv_fs_open(&file, buffer, LV_FS_MODE_RD);
@@ -176,6 +182,7 @@ void read_thread(){
 
 		LV_LOG_INFO("Finished reading 2nd half");
 
+		// The LVGL version that ZMK uses has a memory leak on file close.
 		lv_fs_close(&file);
 
 		//display_write(display_dev, 0, 86, &display_desc, image_buffer2);
