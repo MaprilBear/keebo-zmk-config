@@ -1,1 +1,0 @@
-cp ../zmk/app/build/zephyr/zmk.uf2 ../board/zmk.uf2
