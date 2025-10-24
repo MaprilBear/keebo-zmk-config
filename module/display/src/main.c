@@ -18,7 +18,7 @@
 #include <malloc.h>
 #include <zephyr/random/random.h>
 
-LOG_MODULE_REGISTER(display_app, CONFIG_ZMK_LOG_LEVEL);
+LOG_MODULE_REGISTER(display_app);
 
 #define LV_FS_FATFS_LETTER 'N'
 
@@ -27,7 +27,7 @@ const struct device *const display_dev = DEVICE_DT_GET(DISPLAY_DEVICE);
 
 #define IMAGE_SPLITS 2
 #define IMAGE_SIZE (320 * 172 * 2)
-#define REFRESH_RATE 24
+#define REFRESH_RATE 30
 #define REFRESH_PERIOD (K_MSEC(1000 / REFRESH_RATE))
 
 __attribute__ ((aligned (4))) uint8_t image_buffer1[IMAGE_SIZE / 2];
@@ -55,6 +55,16 @@ lv_draw_label_dsc_t fps_label_dsc;
 uint8_t colors[3];
 
 int16_t draw_pos = 0;
+
+static lv_fs_res_t my_lvgl_close(struct _lv_fs_drv_t *drv, void *file)
+{
+	int err;
+
+	err = fs_close((struct fs_file_t *)file);
+	LV_MEM_CUSTOM_FREE(file);
+	return err;
+}
+
 
 void canvas_init(){
 	canvas1 = lv_canvas_create(lv_scr_act());
@@ -156,6 +166,7 @@ void read_thread(){
 			goto load;
 		}
 		count++;
+		file.drv->close_cb = my_lvgl_close;
 
 		LV_LOG_INFO("Reading 1st half into buffer");
 		int read_bytes;

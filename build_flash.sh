@@ -1,4 +1,2 @@
-./build.sh
-./flash.sh
-
-read -p "Press any key to continue" x
+./build_docker.sh
+./flash_docker.sh
