@@ -81,7 +81,7 @@ class Image final : public CanvasObject
    {
       if (!inBounds(canvas))
       {
-         LV_LOG_INFO("Image is not in bounds of the canvas, skipping...");
+         LOG_INF("Image is not in bounds of the canvas, skipping...");
          // return;
       }
 
@@ -150,14 +150,14 @@ class Image final : public CanvasObject
          lv_fs_read(file, &canvas->canvasBuffer[0], croppedSize, &read_bytes);
          if (read_bytes != croppedSize)
          {
-            LV_LOG_ERROR("Failed to read entire selection, only read %u bytes", read_bytes);
+            LOG_ERR("Failed to read entire selection, only read %u bytes", read_bytes);
          }
-         LV_LOG_INFO("Finished reading");
+         LOG_INF("Finished reading");
       }
       else
       {
          // Arbitrary image position is not currently supported
-         LV_LOG_INFO("Image is not aligned with the canvas, skipping...");
+         LOG_INF("Image is not aligned with the canvas, skipping...");
          return;
       }
    }
@@ -190,11 +190,11 @@ class RenderEngine
 
    void draw(MiniCanvas* canvas)
    {
-      LV_LOG_INFO("Drawing canvas");
+      LOG_INF("Drawing canvas");
 
       for (auto& object : canvasElements)
       {
-         LV_LOG_INFO("Drawing canvas object");
+         LOG_INF("Drawing canvas object");
          object->draw(canvas);
       }
 
@@ -203,20 +203,37 @@ class RenderEngine
       lv_canvas_draw_text(reinterpret_cast<lv_obj_t*>(canvas), fpsX - canvas->img.obj.coords.x1,
                           fpsY - canvas->img.obj.coords.y1, 1000, &fps_label_dsc, buffer);
 
-      LV_LOG_INFO("Finished drawing canvas");
+      LOG_INF("Finished drawing canvas");
    }
 };
+
+static lv_fs_res_t my_lvgl_close(struct _lv_fs_drv_t* drv, void* file)
+{
+   int err;
+
+   err = fs_close((struct fs_file_t*)file);
+   LV_MEM_CUSTOM_FREE(file);
+   return err;
+}
 
 // Static screen parameters
 // Unfortunately it's not possible to pull the screen capabilities at compile time.
 // In order to allocate a fixed size for our image buffers we need to hard code these values.
 static constexpr auto SCREEN_WIDTH = DT_PROP(DT_CHOSEN(zephyr_display), width);
 static constexpr auto SCREEN_HEIGHT = DT_PROP(DT_CHOSEN(zephyr_display), height);
+uint32_t last_frame_time = 0;
+
+#define NUM_FRAMES 11
+
+K_SEM_DEFINE(readSema1, 1, 1);
+K_SEM_DEFINE(readSema2, 1, 1);
+K_SEM_DEFINE(flushSema1, 0, 1);
+K_SEM_DEFINE(flushSema2, 0, 1);
 
 class ScreenManager
 {
    public:
-   ScreenManager(std::uint8_t* image_buffer) : canvasCounter(0)
+   ScreenManager(std::uint8_t* image_buffer)
    {
       renderEngine = make_unique<RenderEngine>();
 
@@ -234,10 +251,12 @@ class ScreenManager
       lv_canvas_set_buffer(reinterpret_cast<lv_obj_t*>(&miniCanvas2), miniCanvas2.canvasBuffer, SCREEN_WIDTH,
                            SCREEN_HEIGHT / 2, LV_IMG_CF_TRUE_COLOR);
       miniCanvas2.img.obj.coords = lv_area_t{0, 86, 319, 171};
-   }
 
-   void switchMiniCanvas(){
-      canvasCounter++;
+      // Initialize display descriptor
+      display_desc.buf_size = IMAGE_SIZE / 2;
+      display_desc.width = 320;
+      display_desc.height = 86;
+      display_desc.pitch = 0;
    }
 
    void tick()
@@ -245,16 +264,17 @@ class ScreenManager
       renderEngine->update();
    }
 
-   void draw()
+   void draw(MiniCanvas* canvas)
    {
-      renderEngine->draw(getCurrentMiniCanvas());
+      renderEngine->draw(canvas);
    }
 
-   void flush()
+   void flush(MiniCanvas* canvas)
    {
-      MiniCanvas* currentMiniCanvas = getCurrentMiniCanvas();
-      display_write(display_dev, currentMiniCanvas->img.obj.coords.x1, currentMiniCanvas->img.obj.coords.y1,
-                    &display_desc, currentMiniCanvas->canvasBuffer);
+      LOG_INF("Flushing!");
+      display_write(display_dev, canvas->img.obj.coords.x1, canvas->img.obj.coords.y1, &display_desc,
+                    canvas->canvasBuffer);
+      LOG_INF("Flushing complete!");
    }
 
    void addImage(lv_fs_file_t* file)
@@ -262,42 +282,81 @@ class ScreenManager
       renderEngine->addCanvasElement(make_unique<Image>(lv_area_t{0, 0, 319, 171}, file));
    }
 
+   void loop()
+   {
+      lv_fs_file_t file;
+
+      addImage(&file);
+
+      while (1)
+      {
+         tick();
+      load:
+         uint32_t frame_time = k_cycle_get_32();
+         fps = 1000 / k_cyc_to_ms_floor32(frame_time - last_frame_time);
+         LOG_INF("Current FPS = %d, Elapsed time = %d", fps, k_cyc_to_ms_floor32(frame_time - last_frame_time));
+         last_frame_time = frame_time;
+         char buffer[50];
+         static int count = 0;
+         if (count >= NUM_FRAMES)
+         {
+            count %= NUM_FRAMES;
+         }
+         snprintk(buffer, 50, "/NAND:/frame_%d.bin", count);
+         LOG_INF("Loading frame %s", buffer);
+         lv_res_t res = lv_fs_open(&file, buffer, LV_FS_MODE_RD);
+         if (res != LV_FS_RES_OK)
+         {
+            LOG_ERR("File %s failed to open", buffer);
+            count = 0;
+            goto load;
+         }
+         count++;
+         file.drv->close_cb = my_lvgl_close;
+
+         k_sem_take(&readSema1, K_FOREVER);
+         draw(&miniCanvas1);
+         k_sem_give(&flushSema1);
+         k_sem_take(&readSema2, K_FOREVER);
+         draw(&miniCanvas2);
+         k_sem_give(&flushSema2);
+
+         // The LVGL version that ZMK uses has a memory leak on file close.
+         lv_fs_close(&file);
+      }
+   }
+
+   void flushLoop()
+   {
+      while (1)
+      {
+         k_sem_take(&flushSema1, K_FOREVER);
+         flush(&miniCanvas1);
+         k_sem_give(&readSema1);
+         k_sem_take(&flushSema2, K_FOREVER);
+         flush(&miniCanvas2);
+         k_sem_give(&readSema2);
+      }
+   }
+
    private:
    static constexpr auto display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
    std::unique_ptr<RenderEngine> renderEngine;
-   struct display_buffer_descriptor display_desc{IMAGE_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT / 2, 0};
+   struct display_buffer_descriptor display_desc;
    MiniCanvas miniCanvas1;
    MiniCanvas miniCanvas2;
-   std::uint8_t canvasCounter;
-
-   MiniCanvas* getCurrentMiniCanvas()
-   {
-      switch (canvasCounter % 2)
-      {
-         case 0: return &miniCanvas1;
-         case 1: return &miniCanvas2;
-         default: return nullptr;
-      }
-   }
 };
 
-static lv_fs_res_t my_lvgl_close(struct _lv_fs_drv_t* drv, void* file)
-{
-   int err;
+ScreenManager* screen = nullptr;
 
-   err = fs_close((struct fs_file_t*)file);
-   LV_MEM_CUSTOM_FREE(file);
-   return err;
-}
-
-uint32_t last_frame_time = 0;
-
-#define NUM_FRAMES 11
+K_SEM_DEFINE(flushStartSema, 0, 1);
 
 int display_thread(void)
 {
 
    const struct device* display_dev;
+
+   k_sleep(K_MSEC(1000));
 
    display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
    if (!device_is_ready(display_dev))
@@ -310,65 +369,20 @@ int display_thread(void)
 
    display_blanking_off(display_dev);
 
-   k_sleep(K_MSEC(1000)); // let the flash disk settle
-
    LOG_PRINTK("Display Width: %d\nDisplay Height : %d\nDisplay Image Size : % d\n", SCREEN_WIDTH, SCREEN_HEIGHT,
               IMAGE_SIZE);
 
-   ScreenManager screen(image_buffer);
-
-   lv_fs_file_t file;
-
-   struct display_buffer_descriptor display_desc;
-   display_desc.buf_size = IMAGE_SIZE;
-   display_desc.width = 320;
-   display_desc.height = 172;
-   display_desc.pitch = 0;
-
-   k_sleep(K_MSEC(1000));
-
-   screen.addImage(&file);
-
-   // Switch to the last mini canvas so our code can switch once more unconditionally to start at the fist mini canvas
-   screen.switchMiniCanvas();
-
-   while (1)
-   {
-      screen.tick();
-   load:
-      uint32_t frame_time = k_cycle_get_32();
-      fps = 1000 / k_cyc_to_ms_floor32(frame_time - last_frame_time);
-      LV_LOG_INFO("Current FPS = %d, Elapsed time = %d", fps, k_cyc_to_ms_floor32(frame_time - last_frame_time));
-      last_frame_time = frame_time;
-      char buffer[50];
-      static int count = 0;
-      if (count >= NUM_FRAMES)
-      {
-         count %= NUM_FRAMES;
-      }
-      snprintk(buffer, 50, "/NAND:/frame_%d.bin", count);
-      LV_LOG_INFO("Loading frame %s", buffer);
-      lv_res_t res = lv_fs_open(&file, buffer, LV_FS_MODE_RD);
-      if (res != LV_FS_RES_OK)
-      {
-         LV_LOG_ERROR("File %s failed to open", buffer);
-         count = 0;
-         goto load;
-      }
-      count++;
-      file.drv->close_cb = my_lvgl_close;
-
-      screen.switchMiniCanvas();
-      screen.draw();
-      screen.flush();
-
-      screen.switchMiniCanvas();
-      screen.draw();
-      screen.flush();
-
-      // The LVGL version that ZMK uses has a memory leak on file close.
-      lv_fs_close(&file);
-   }
+   screen = new ScreenManager(image_buffer);
+   k_sem_give(&flushStartSema);
+   screen->loop();
 }
 
-K_THREAD_DEFINE(dsp_thread, 2048, display_thread, NULL, NULL, NULL, 2, 0, 0);
+K_THREAD_DEFINE(dsp_thread, 4096, display_thread, NULL, NULL, NULL, 2, 0, 0);
+
+void flush_thread()
+{
+   k_sem_take(&flushStartSema, K_FOREVER);
+   screen->flushLoop();
+}
+
+K_THREAD_DEFINE(flushing_thread, 2048, flush_thread, NULL, NULL, NULL, 2, 0, 0);
