@@ -13,13 +13,14 @@
 #include <zephyr/random/random.h>
 
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <utility>
 #include <vector>
 
 #include LV_MEM_CUSTOM_INCLUDE
 
-LOG_MODULE_REGISTER(display_app);
+    LOG_MODULE_REGISTER(display_app);
 
 template <typename T, typename... Args> std::unique_ptr<T> make_unique(Args&&... args)
 {
@@ -39,6 +40,12 @@ alignas(4) std::uint8_t image_buffer[IMAGE_SIZE];
 
 uint16_t fps = 0;
 
+
+struct MiniCanvas : public lv_canvas_t
+{
+   std::uint8_t* canvasBuffer;
+};
+
 class CanvasObject
 {
    protected:
@@ -46,9 +53,9 @@ class CanvasObject
 
    public:
    virtual void tick() = 0;
-   virtual void draw(lv_canvas_t* canvas, std::uint8_t* canvasData) = 0;
+   virtual void draw(MiniCanvas* canvas) = 0;
 
-   bool inBounds(lv_canvas_t* canvas)
+   bool inBounds(MiniCanvas* canvas)
    {
       return (this->coords.x1 >= canvas->img.obj.coords.x1) || (this->coords.y1 >= canvas->img.obj.coords.y1) ||
              (this->coords.x2 <= canvas->img.obj.coords.x2) || (this->coords.y2 <= canvas->img.obj.coords.y2);
@@ -70,7 +77,7 @@ class Image final : public CanvasObject
    {
    }
 
-   void draw(lv_canvas_t* canvas, std::uint8_t* canvasData) override
+   void draw(MiniCanvas* canvas) override
    {
       if (!inBounds(canvas))
       {
@@ -88,20 +95,20 @@ class Image final : public CanvasObject
       {
 
          // Skip over the image header and any rows that are obscured by the canvas' current bound
-         auto filePos = 4; // Skip over image header from LVGL v8 conversion tool
-         auto canvasPos = 0;
-         auto delta = this->coords.y1 - canvasCoords.y1;
+         std::uint32_t filePos = 4; // Skip over image header from LVGL v8 conversion tool
+         std::uint32_t canvasPos = 0;
+         std::int32_t delta = this->coords.y1 - canvasCoords.y1;
          if (delta < 0)
          {
             // The image is positioned above the start of the canvas viewable area
             // We need to seek futher into the image data to begin reading into canvas[0][0] at the right place.
-            filePos += delta * imageWidth;
+            filePos = static_cast<std::uint32_t>(-delta) * imageWidth * 2;
          }
          else if (delta > 0)
          {
             // The image is positioned below the start of the canvas vierable area
             // We need to begin reading data into an offset in the canvas, not the file.
-            canvasPos += delta * imageWidth;
+            canvasPos = delta * imageWidth * 2;
          }
          else
          {
@@ -133,19 +140,19 @@ class Image final : public CanvasObject
          else
          {
             // Image and canvas are perfectly aligned and the same size
-            visibleRows = imageHeight;
+            visibleRows = canvas->img.h;
          }
 
          std::uint32_t croppedSize = visibleRows * imageWidth * 2;
          lv_fs_seek(file, filePos, LV_FS_SEEK_SET);
 
          std::uint32_t read_bytes = 0;
-         lv_fs_read(file, &canvasData[canvasPos], croppedSize, &read_bytes);
+         lv_fs_read(file, &canvas->canvasBuffer[0], croppedSize, &read_bytes);
          if (read_bytes != croppedSize)
          {
-            LV_LOG_ERROR("Failed to read entire selection, only read %d bytes", read_bytes);
+            LV_LOG_ERROR("Failed to read entire selection, only read %u bytes", read_bytes);
          }
-         LV_LOG_INFO("Finished reading 1st half");
+         LV_LOG_INFO("Finished reading");
       }
       else
       {
@@ -159,22 +166,17 @@ class Image final : public CanvasObject
 class RenderEngine
 {
    private:
-   std::uint16_t canvasWidth;
-   std::uint16_t canvasHeight;
-   lv_canvas_t* canvas;
-   lv_draw_rect_dsc_t fps_rect_dsc;
    lv_draw_label_dsc_t fps_label_dsc;
    std::vector<std::unique_ptr<CanvasObject>> canvasElements;
-   std::uint8_t* image_buf;
+   lv_coord_t fpsX = 260;
+   lv_coord_t fpsY = 160;
 
    public:
-   RenderEngine(std::uint16_t width, std::uint16_t height, std::uint8_t* image_buffer)
-       : canvasWidth(width), canvasHeight(height), canvasElements{}, image_buf(image_buffer)
+   RenderEngine() : canvasElements{}
    {
-      canvas = reinterpret_cast<lv_canvas_t*>(lv_canvas_create(lv_scr_act()));
-      lv_canvas_set_buffer(reinterpret_cast<lv_obj_t*>(canvas), image_buffer, width, height, LV_IMG_CF_TRUE_COLOR);
-      canvas->img.obj.coords = lv_area_t{0, 0, 319, 171};
-      init();
+      lv_draw_label_dsc_init(&fps_label_dsc);
+      fps_label_dsc.font = &lv_font_unscii_8;
+      fps_label_dsc.color = lv_color_white();
    }
 
    void addCanvasElement(std::unique_ptr<CanvasObject> object)
@@ -182,30 +184,24 @@ class RenderEngine
       canvasElements.emplace_back(std::move(object));
    }
 
-   void init()
-   {
-      lv_draw_label_dsc_init(&fps_label_dsc);
-      fps_label_dsc.font = &lv_font_unscii_8;
-      fps_label_dsc.color = lv_color_white();
-   }
-
    void update()
    {
    }
 
-   void draw()
+   void draw(MiniCanvas* canvas)
    {
       LV_LOG_INFO("Drawing canvas");
 
       for (auto& object : canvasElements)
       {
          LV_LOG_INFO("Drawing canvas object");
-         object->draw(canvas, image_buf);
+         object->draw(canvas);
       }
 
       char buffer[15];
       snprintk(buffer, 15, "%02d FPS\0", fps);
-      lv_canvas_draw_text(reinterpret_cast<lv_obj_t*>(canvas), 260, 160, 1000, &fps_label_dsc, buffer);
+      lv_canvas_draw_text(reinterpret_cast<lv_obj_t*>(canvas), fpsX - canvas->img.obj.coords.x1,
+                          fpsY - canvas->img.obj.coords.y1, 1000, &fps_label_dsc, buffer);
 
       LV_LOG_INFO("Finished drawing canvas");
    }
@@ -217,12 +213,31 @@ class RenderEngine
 static constexpr auto SCREEN_WIDTH = DT_PROP(DT_CHOSEN(zephyr_display), width);
 static constexpr auto SCREEN_HEIGHT = DT_PROP(DT_CHOSEN(zephyr_display), height);
 
-class ScreenRenderer
+class ScreenManager
 {
    public:
-   ScreenRenderer(std::uint8_t* image_buffer) : image_buf(image_buffer)
+   ScreenManager(std::uint8_t* image_buffer) : canvasCounter(0)
    {
-      renderEngine = make_unique<RenderEngine>(SCREEN_WIDTH, SCREEN_HEIGHT, image_buffer);
+      renderEngine = make_unique<RenderEngine>();
+
+      // Intialize our MiniCanvases
+      lv_canvas_t* lvCanvas = reinterpret_cast<lv_canvas_t*>(lv_canvas_create(lv_scr_act()));
+      std::memcpy(&miniCanvas1, lvCanvas, sizeof(lv_canvas_t));
+      miniCanvas1.canvasBuffer = image_buffer;
+      lv_canvas_set_buffer(reinterpret_cast<lv_obj_t*>(&miniCanvas1), miniCanvas1.canvasBuffer, SCREEN_WIDTH,
+                           SCREEN_HEIGHT / 2, LV_IMG_CF_TRUE_COLOR);
+      miniCanvas1.img.obj.coords = lv_area_t{0, 0, 319, 85};
+
+      lvCanvas = reinterpret_cast<lv_canvas_t*>(lv_canvas_create(lv_scr_act()));
+      std::memcpy(&miniCanvas2, lvCanvas, sizeof(lv_canvas_t));
+      miniCanvas2.canvasBuffer = &image_buffer[SCREEN_WIDTH * (SCREEN_HEIGHT / 2) * 2];
+      lv_canvas_set_buffer(reinterpret_cast<lv_obj_t*>(&miniCanvas2), miniCanvas2.canvasBuffer, SCREEN_WIDTH,
+                           SCREEN_HEIGHT / 2, LV_IMG_CF_TRUE_COLOR);
+      miniCanvas2.img.obj.coords = lv_area_t{0, 86, 319, 171};
+   }
+
+   void switchMiniCanvas(){
+      canvasCounter++;
    }
 
    void tick()
@@ -232,12 +247,14 @@ class ScreenRenderer
 
    void draw()
    {
-      renderEngine->draw();
+      renderEngine->draw(getCurrentMiniCanvas());
    }
 
    void flush()
    {
-      display_write(display_dev, 0, 0, &display_desc, image_buf);
+      MiniCanvas* currentMiniCanvas = getCurrentMiniCanvas();
+      display_write(display_dev, currentMiniCanvas->img.obj.coords.x1, currentMiniCanvas->img.obj.coords.y1,
+                    &display_desc, currentMiniCanvas->canvasBuffer);
    }
 
    void addImage(lv_fs_file_t* file)
@@ -248,8 +265,20 @@ class ScreenRenderer
    private:
    static constexpr auto display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
    std::unique_ptr<RenderEngine> renderEngine;
-   struct display_buffer_descriptor display_desc{IMAGE_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT, 0};
-   std::uint8_t* image_buf;
+   struct display_buffer_descriptor display_desc{IMAGE_SIZE, SCREEN_WIDTH, SCREEN_HEIGHT / 2, 0};
+   MiniCanvas miniCanvas1;
+   MiniCanvas miniCanvas2;
+   std::uint8_t canvasCounter;
+
+   MiniCanvas* getCurrentMiniCanvas()
+   {
+      switch (canvasCounter % 2)
+      {
+         case 0: return &miniCanvas1;
+         case 1: return &miniCanvas2;
+         default: return nullptr;
+      }
+   }
 };
 
 static lv_fs_res_t my_lvgl_close(struct _lv_fs_drv_t* drv, void* file)
@@ -286,7 +315,7 @@ int display_thread(void)
    LOG_PRINTK("Display Width: %d\nDisplay Height : %d\nDisplay Image Size : % d\n", SCREEN_WIDTH, SCREEN_HEIGHT,
               IMAGE_SIZE);
 
-   ScreenRenderer screen(image_buffer);
+   ScreenManager screen(image_buffer);
 
    lv_fs_file_t file;
 
@@ -299,6 +328,9 @@ int display_thread(void)
    k_sleep(K_MSEC(1000));
 
    screen.addImage(&file);
+
+   // Switch to the last mini canvas so our code can switch once more unconditionally to start at the fist mini canvas
+   screen.switchMiniCanvas();
 
    while (1)
    {
@@ -326,6 +358,11 @@ int display_thread(void)
       count++;
       file.drv->close_cb = my_lvgl_close;
 
+      screen.switchMiniCanvas();
+      screen.draw();
+      screen.flush();
+
+      screen.switchMiniCanvas();
       screen.draw();
       screen.flush();
 
