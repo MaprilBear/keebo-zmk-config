@@ -1,8 +1,12 @@
 AlignTrailingComments: true
-AllowShortFunctionsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: false
 AllowShortIfStatementsOnASingleLine: true
 AllowShortLoopsOnASingleLine: true
 BreakBeforeBinaryOperators: false
 IndentWidth: 3
-SortIncludes: false
+SortIncludes: true
 NamespaceIndentation: All
+AccessModifierOffset: 0
+ColumnLimit: 120
+PointerAlignment: Left
+BreakBeforeBraces: Allman
