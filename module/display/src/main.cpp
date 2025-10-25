@@ -139,15 +139,6 @@ class Image final : public CanvasObject
          std::uint32_t croppedSize = visibleRows * imageWidth * 2;
          lv_fs_seek(file, filePos, LV_FS_SEEK_SET);
 
-         LOG_PRINTK("Image Pos = {%d, %d} {%d, %d}\n", this->coords.x1, this->coords.y1, this->coords.x2,
-                    this->coords.y2);
-         LOG_PRINTK("Canvas Pos = {%d, %d} {%d, %d}\n", canvasCoords.x1, canvasCoords.y1, canvasCoords.x2,
-                    canvasCoords.y2);
-         LOG_PRINTK("Visible rows = %d\n", visibleRows);
-         LOG_PRINTK("Cropped size = %d\n", croppedSize);
-         LOG_PRINTK("File start pos = %d\n", filePos);
-         LOG_PRINTK("Canvas start pos = %d\n", canvasPos);
-
          std::uint32_t read_bytes = 0;
          lv_fs_read(file, &canvasData[canvasPos], croppedSize, &read_bytes);
          if (read_bytes != croppedSize)
@@ -171,12 +162,8 @@ class RenderEngine
    std::uint16_t canvasWidth;
    std::uint16_t canvasHeight;
    lv_canvas_t* canvas;
-   lv_draw_rect_dsc_t rect_dsc;
    lv_draw_rect_dsc_t fps_rect_dsc;
-   lv_draw_label_dsc_t label_dsc;
    lv_draw_label_dsc_t fps_label_dsc;
-   uint8_t colors[3];
-   int16_t draw_pos = 0;
    std::vector<std::unique_ptr<CanvasObject>> canvasElements;
    std::uint8_t* image_buf;
 
@@ -197,31 +184,6 @@ class RenderEngine
 
    void init()
    {
-      lv_draw_rect_dsc_init(&rect_dsc);
-      rect_dsc.radius = 10;
-      rect_dsc.bg_opa = LV_OPA_80;
-      // rect_dsc.bg_grad.dir = LV_GRAD_DIR_HOR;
-      // rect_dsc.bg_grad.stops[0].color = lv_palette_main(LV_PALETTE_RED);
-      // rect_dsc.bg_grad.stops[1].color = lv_palette_main(LV_PALETTE_BLUE);
-      rect_dsc.border_width = 2;
-      rect_dsc.border_opa = LV_OPA_90;
-      rect_dsc.border_color = lv_color_black();
-      rect_dsc.shadow_width = 5;
-      rect_dsc.shadow_ofs_x = 5;
-      rect_dsc.shadow_ofs_y = 5;
-
-      lv_draw_rect_dsc_init(&fps_rect_dsc);
-      // rect_dsc.radius = 0;
-      rect_dsc.bg_opa = LV_OPA_50;
-      fps_rect_dsc.bg_color = lv_color_black();
-      // rect_dsc.bg_grad.dir = LV_GRAD_DIR_HOR;
-      // rect_dsc.bg_grad.stops[0].color = lv_palette_main(LV_PALETTE_RED);
-      // rect_dsc.bg_grad.stops[1].color = lv_palette_main(LV_PALETTE_BLUE);
-      fps_rect_dsc.border_width = 1;
-      fps_rect_dsc.border_opa = LV_OPA_90;
-      fps_rect_dsc.border_color = lv_color_white();
-
-      lv_draw_label_dsc_init(&label_dsc);
       lv_draw_label_dsc_init(&fps_label_dsc);
       fps_label_dsc.font = &lv_font_unscii_8;
       fps_label_dsc.color = lv_color_white();
@@ -229,24 +191,21 @@ class RenderEngine
 
    void update()
    {
-      sys_rand_get(colors, 3);
-      label_dsc.color = lv_color_make(colors[0], colors[1], colors[2]);
-
-      draw_pos = (draw_pos + 2) % 172;
    }
 
    void draw()
    {
       LV_LOG_INFO("Drawing canvas");
-      char buffer[10];
-      snprintk(buffer, 10, "%02d FPS", fps);
-      lv_canvas_draw_text(reinterpret_cast<lv_obj_t*>(canvas), 260, 160, 1000, &fps_label_dsc, buffer);
 
       for (auto& object : canvasElements)
       {
          LV_LOG_INFO("Drawing canvas object");
          object->draw(canvas, image_buf);
       }
+
+      char buffer[15];
+      snprintk(buffer, 15, "%02d FPS\0", fps);
+      lv_canvas_draw_text(reinterpret_cast<lv_obj_t*>(canvas), 260, 160, 1000, &fps_label_dsc, buffer);
 
       LV_LOG_INFO("Finished drawing canvas");
    }
