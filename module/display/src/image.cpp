@@ -92,7 +92,7 @@ void Image::draw(MiniCanvas* canvas)
       {
          LOG_ERR("Failed to read entire selection, only read %u bytes", read_bytes);
       }
-      LOG_INF("Finished reading");
+      // LOG_INF("Finished reading");
    }
    else
    {

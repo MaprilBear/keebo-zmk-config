@@ -8,6 +8,9 @@
 #include <cstring>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zmk/event_manager.h>
+#include <zmk/activity.h>
+
 
 LOG_MODULE_DECLARE(display_app);
 
@@ -17,13 +20,14 @@ namespace
    K_SEM_DEFINE(readSema2, 1, 1);
    K_SEM_DEFINE(flushSema1, 0, 1);
    K_SEM_DEFINE(flushSema2, 0, 1);
+
 } // namespace
 
 alignas(4) std::uint8_t ScreenManager::image_buffer[IMAGE_SIZE];
 
 ScreenManager::ScreenManager()
 {
-   renderEngine = make_unique<RenderEngine>();
+   renderEngine = std::make_unique<RenderEngine>();
 
    // Intialize our MiniCanvases
    lv_canvas_t* lvCanvas = reinterpret_cast<lv_canvas_t*>(lv_canvas_create(lv_scr_act()));
@@ -59,10 +63,10 @@ void ScreenManager::draw(MiniCanvas* canvas)
 
 void ScreenManager::flush(MiniCanvas* canvas)
 {
-   LOG_INF("Flushing...");
+   // LOG_INF("Flushing...");
    display_write(display_dev, canvas->img.obj.coords.x1, canvas->img.obj.coords.y1, &display_desc,
                  canvas->canvasBuffer);
-   LOG_INF("Flushing complete!");
+   // LOG_INF("Flushing complete!");
 }
 
 void ScreenManager::addElement(std::unique_ptr<CanvasObject> element)
@@ -74,6 +78,11 @@ void ScreenManager::loop()
 {
    while (1)
    {
+      // Wait here until we've been resumed
+      while (!running){
+         k_yield();
+      }
+
       tick();
 
       k_sem_take(&readSema1, K_FOREVER);

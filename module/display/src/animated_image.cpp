@@ -31,7 +31,7 @@ AnimatedImage::AnimatedImage(lv_area_t coords, std::string prefix, std::string s
 
 void AnimatedImage::tick()
 {
-   LOG_PRINTK("Ticking animation\n");
+   // LOG_PRINTK("Ticking animation\n");
    // The LVGL version that ZMK uses has a memory leak on file close.
    if (file.file_d != nullptr)
    {
@@ -39,7 +39,7 @@ void AnimatedImage::tick()
    }
 
    std::string fileName = generateFileName();
-   LOG_PRINTK("Opening %s\n", fileName.c_str());
+   // LOG_PRINTK("Opening %s\n", fileName.c_str());
    lv_res_t res = lv_fs_open(&file, fileName.c_str(), LV_FS_MODE_RD);
    if (res != LV_FS_RES_OK)
    {

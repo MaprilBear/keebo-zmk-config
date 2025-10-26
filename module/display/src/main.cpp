@@ -11,13 +11,13 @@
 #include <memory>
 #include <utility>
 
-#include "screen_manager.hpp"
 #include "animated_image.hpp"
+#include "screen_manager.hpp"
 #include "utils.hpp"
 
-LOG_MODULE_REGISTER(display_app);
+#include <zmk/events/activity_state_changed.h>
 
-std::unique_ptr<ScreenManager> screen = nullptr;
+LOG_MODULE_REGISTER(display_app);
 
 K_SEM_DEFINE(flushStartSema, 0, 1);
 
@@ -38,13 +38,12 @@ int display_thread(void)
 
    display_blanking_off(display_dev);
 
-   screen = make_unique<ScreenManager>();
+   ScreenManager& screen = ScreenManager::getScreenManager();
 
-   auto animation = make_unique<AnimatedImage>(lv_area_t{0, 0, 319, 171}, "/NAND:/frame_", ".bin", 11);
-   screen->addElement(std::move(animation));
+   auto animation = std::make_unique<AnimatedImage>(lv_area_t{0, 0, 319, 171}, "/NAND:/frame_", ".bin", 11);
+   screen.addElement(std::move(animation));
 
-   k_sem_give(&flushStartSema);
-   screen->loop();
+   screen.loop();
 
    return 0;
 }
@@ -53,8 +52,28 @@ K_THREAD_DEFINE(dsp_thread, 4096, display_thread, NULL, NULL, NULL, 2, 0, 0);
 
 void flush_thread()
 {
-   k_sem_take(&flushStartSema, K_FOREVER);
-   screen->flushLoop();
+   ScreenManager::getScreenManager().flushLoop();
 }
 
 K_THREAD_DEFINE(flushing_thread, 2048, flush_thread, NULL, NULL, NULL, 2, 0, 0);
+
+
+
+static int display_activity_listener(const zmk_event_t* eh)
+{
+   auto stateChange = reinterpret_cast<const zmk_activity_state_changed_event*>(eh);
+   switch (stateChange->data.state)
+   {
+      case ZMK_ACTIVITY_ACTIVE:
+         ScreenManager::getScreenManager().resume();
+         break;
+      case ZMK_ACTIVITY_IDLE:
+      case ZMK_ACTIVITY_SLEEP:
+         ScreenManager::getScreenManager().pause();
+         break;
+   }
+   return 0;
+}
+
+ZMK_LISTENER(activity, display_activity_listener);
+ZMK_SUBSCRIPTION(activity, zmk_activity_state_changed);
