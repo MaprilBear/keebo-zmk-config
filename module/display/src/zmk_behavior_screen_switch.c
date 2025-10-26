@@ -1,8 +1,9 @@
-#include "zephyr/kernel.h"
+
 #define DT_DRV_COMPAT zmk_behavior_screen_switch
 // Dependencies
 #include <drivers/behavior.h>
 #include <zephyr/device.h>
+#include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 
 #include <zmk/behavior.h>
@@ -35,10 +36,23 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 //    return 0;
 // };
 
+// K_SEM_DEFINE(screenSwitchSema, 0, 1);
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+   void switchScreensC();
+
+#ifdef __cplusplus
+}
+#endif
+
 static int on_keymap_binding_pressed(struct zmk_behavior_binding* binding, struct zmk_behavior_binding_event event)
 {
    LOG_INF("Uhhhh, hello?");
-   //k_sem_give(&screenSwitchSema);
+   switchScreensC();
    return 0;
 }
 

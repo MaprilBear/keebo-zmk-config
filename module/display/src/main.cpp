@@ -79,20 +79,20 @@ int display_thread(void)
    mainScreen->elements.emplace_back(fpsLabel);
 
    // setup settings screen for later
-   // settingsScreen = new Screen();
-   // settingsScreen->hasBackground = true;
-   // settingsScreen->backgroundColor = lv_color_white();
+   settingsScreen = new Screen();
+   settingsScreen->hasBackground = true;
+   settingsScreen->backgroundColor = lv_color_white();
 
-   // auto myLabel = new Label(lv_point_t{100, 100});
-   // myLabel->setText("Hello!");
-   // myLabel->setDesc(
-   //     [](lv_draw_label_dsc_t& desc)
-   //     {
-   //        lv_draw_label_dsc_init(&desc);
-   //        desc.font = &lv_font_unscii_16;
-   //        desc.color = lv_color_black();
-   //     });
-   // settingsScreen->elements.emplace_back(myLabel);
+   auto myLabel = new Label(lv_point_t{100, 100});
+   myLabel->setText("Hello!");
+   myLabel->setDesc(
+       [](lv_draw_label_dsc_t& desc)
+       {
+          lv_draw_label_dsc_init(&desc);
+          desc.font = &lv_font_unscii_16;
+          desc.color = lv_color_black();
+       });
+   settingsScreen->elements.emplace_back(myLabel);
 
    screenManager.setScreen(mainScreen);
 
@@ -125,3 +125,42 @@ static int display_activity_listener(const zmk_event_t* eh)
 
 ZMK_LISTENER(activity, display_activity_listener);
 ZMK_SUBSCRIPTION(activity, zmk_activity_state_changed);
+
+extern "C" void switchScreensC()
+{
+   LOG_INF("I'm in C++ land!");
+
+   auto& screenManager = ScreenManager::getScreenManager();
+
+   if (screenManager.getScreen() == mainScreen)
+   {
+      screenManager.setScreen(settingsScreen);
+   }
+   else
+   {
+      screenManager.setScreen(mainScreen);
+   }
+}
+
+extern struct k_sem screenSwitchSema;
+
+void switchScreens(){
+   while(1)
+   {
+      k_sem_take(&screenSwitchSema, K_FOREVER);
+
+      LOG_INF("IM SWITCHING SCREENS!");
+      // auto& screenManager = ScreenManager::getScreenManager();
+
+      // if (screenManager.getScreen() == mainScreen)
+      // {
+      //    screenManager.setScreen(settingsScreen);
+      // }
+      // else
+      // {
+      //    screenManager.setScreen(mainScreen);
+      // }
+   }
+}
+
+// K_THREAD_DEFINE(screen_switch_thread, 1024, switchScreens, NULL, NULL, NULL, 2, 0, 0);
