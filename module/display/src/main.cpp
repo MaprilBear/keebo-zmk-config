@@ -7,11 +7,11 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/random/random.h>
 
-#include <cstring>
 #include <memory>
 #include <utility>
 
 #include "animated_image.hpp"
+#include "screen.hpp"
 #include "screen_manager.hpp"
 #include "utils.hpp"
 
@@ -38,27 +38,25 @@ int display_thread(void)
 
    display_blanking_off(display_dev);
 
-   ScreenManager& screen = ScreenManager::getScreenManager();
+   ScreenManager& screenManager = ScreenManager::getScreenManager();
 
+   // setup a simple screen with an animation
+   auto screen = std::make_shared<Screen>();
    auto animation = std::make_unique<AnimatedImage>(lv_area_t{0, 0, 319, 171}, "/NAND:/frame_", ".bin", 11);
-   screen.addElement(std::move(animation));
+   screen->elements.emplace_back(std::move(animation));
+   screenManager.setScreen(screen);
 
-   screen.loop();
+   screenManager.loop();
 
    return 0;
 }
 
 K_THREAD_DEFINE(dsp_thread, 4096, display_thread, NULL, NULL, NULL, 2, 0, 0);
 
-void flush_thread()
-{
-   ScreenManager::getScreenManager().flushLoop();
-}
-
-K_THREAD_DEFINE(flushing_thread, 2048, flush_thread, NULL, NULL, NULL, 2, 0, 0);
-
-
-
+// Hook into ZMK's activity event to pause the display when we enter idle
+// Eventually this would also shutoff the backlight, but right now the keypad doesn't have backlight controls :)
+// This is implemented incorrectly on purpose. Linker errors occur with as_zmk_activity_state_changed() not being
+// defined for some reason.
 static int display_activity_listener(const zmk_event_t* eh)
 {
    auto stateChange = reinterpret_cast<const zmk_activity_state_changed_event*>(eh);

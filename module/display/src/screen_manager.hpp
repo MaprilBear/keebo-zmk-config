@@ -7,6 +7,7 @@
 #include <memory>
 #include <zephyr/drivers/display.h>
 
+#include "screen.hpp"
 #include "utils.hpp"
 
 class ScreenManager
@@ -25,6 +26,8 @@ class ScreenManager
    MiniCanvas miniCanvas1;
    MiniCanvas miniCanvas2;
 
+   std::shared_ptr<Screen> currentScreen;
+
    ScreenManager();
 
    public:
@@ -40,9 +43,14 @@ class ScreenManager
    void tick();
    void draw(MiniCanvas* canvas);
    void flush(MiniCanvas* canvas);
-   void addElement(std::unique_ptr<CanvasObject> element);
    void loop();
-   void flushLoop();
+
+   void setScreen(std::shared_ptr<Screen> screen)
+   {
+      currentScreen = screen;
+   }
+
+   static void flushLoop();
 
    void pause()
    {

@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "canvas_object.hpp"
+#include "screen.hpp"
 
 
 class RenderEngine
@@ -24,7 +25,5 @@ class RenderEngine
 
    void addCanvasElement(std::unique_ptr<CanvasObject> object);
 
-   void tick();
-
-   void draw(MiniCanvas* canvas);
+   void draw(Screen& screen, MiniCanvas* canvas);
 };

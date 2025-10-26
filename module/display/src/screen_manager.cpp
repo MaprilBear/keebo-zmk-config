@@ -53,12 +53,12 @@ ScreenManager::ScreenManager()
 
 void ScreenManager::tick()
 {
-   renderEngine->tick();
+   currentScreen->tick();
 }
 
 void ScreenManager::draw(MiniCanvas* canvas)
 {
-   renderEngine->draw(canvas);
+   renderEngine->draw(*currentScreen, canvas);
 }
 
 void ScreenManager::flush(MiniCanvas* canvas)
@@ -67,11 +67,6 @@ void ScreenManager::flush(MiniCanvas* canvas)
    display_write(display_dev, canvas->img.obj.coords.x1, canvas->img.obj.coords.y1, &display_desc,
                  canvas->canvasBuffer);
    // LOG_INF("Flushing complete!");
-}
-
-void ScreenManager::addElement(std::unique_ptr<CanvasObject> element)
-{
-   renderEngine->addCanvasElement(std::move(element));
 }
 
 void ScreenManager::loop()
@@ -97,14 +92,17 @@ void ScreenManager::loop()
 
 void ScreenManager::flushLoop()
 {
+   ScreenManager& screen = ScreenManager::getScreenManager();
    while (1)
    {
       k_sem_take(&flushSema1, K_FOREVER);
-      flush(&miniCanvas1);
+      screen.flush(&screen.miniCanvas1);
       k_sem_give(&readSema1);
 
       k_sem_take(&flushSema2, K_FOREVER);
-      flush(&miniCanvas2);
+      screen.flush(&screen.miniCanvas2);
       k_sem_give(&readSema2);
    }
 }
+
+K_THREAD_DEFINE(flushing_thread, 2048, ScreenManager::flushLoop, NULL, NULL, NULL, 2, 0, 0);

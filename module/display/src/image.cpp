@@ -25,15 +25,15 @@ void Image::draw(MiniCanvas* canvas)
       return;
    }
 
-   // Check if this image is aligned to the canvas (no x offset and the widths are the same).
+   // Check if this image is left aligned to the canvas (no x offset and the widths are the same).
    // If the image is aligned, the image can be rendered onto the canvas in one go since we do not need to stop
    // streaming image file data every line to crop and pad.
    std::uint16_t imageWidth = this->coords.x2 - this->coords.x1 + 1;
    std::uint16_t imageHeight = this->coords.y2 - this->coords.y1 + 1;
    auto& canvasCoords = canvas->img.obj.coords;
+
    if (this->coords.x1 == 0 && canvas->img.w == imageWidth)
    {
-
       // Skip over the image header and any rows that are obscured by the canvas' current bound
       std::uint32_t filePos = 4; // Skip over image header from LVGL v8 conversion tool
       std::uint32_t canvasPos = 0;
