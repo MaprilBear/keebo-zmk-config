@@ -7,7 +7,7 @@
 
         default_layer {
             bindings = <
-                &kp Q &kp W &kp E 
+                &screen_switch &kp W &kp E
                 &kp A &kp S &kp D
                 &kp Z &kp X &kp C
             >;
@@ -22,6 +22,13 @@
             timeout-ms = <50>;
             key-positions = <0 2 6 8>;
             bindings = <&bootloader>;
+        };
+    };
+
+    behaviors {
+        screen_switch: screen_switch {
+            compatible = "zmk,behavior-screen-switch";
+            #binding-cells = <0>;
         };
     };
 };
