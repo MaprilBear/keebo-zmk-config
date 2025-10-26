@@ -50,6 +50,11 @@ class ScreenManager
       currentScreen = screen;
    }
 
+   Screen* getScreen()
+   {
+      return currentScreen;
+   }
+
    static void flushLoop();
 
    void pause()

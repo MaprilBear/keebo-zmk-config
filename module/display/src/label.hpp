@@ -1,6 +1,7 @@
 #include "canvas_object.hpp"
 #include "draw/lv_draw_label.h"
 #include "mini_canvas.hpp"
+#include "misc/lv_area.h"
 #include <functional>
 #include <lvgl.h>
 #include <string>
@@ -42,7 +43,7 @@ class Label : public CanvasObject
                           coords.y1 - canvas->img.obj.coords.y1, 1000, &labelDesc, text.c_str());
    }
 
-   Label(lv_area_t coords) : CanvasObject(coords)
+   Label(lv_point_t coords) : CanvasObject(lv_area_t{coords.x, coords.y, 0, 0})
    {
    }
 };

@@ -1,3 +1,4 @@
+// #include "main.h"
 #include <lvgl.h>
 #include <sstream>
 #include <string>
@@ -10,21 +11,23 @@
 #include <zephyr/random/random.h>
 
 #include <iomanip>
-#include <memory>
-#include <utility>
 
 #include "animated_image.hpp"
 #include "draw/lv_draw_label.h"
 #include "label.hpp"
+#include "misc/lv_area.h"
+#include "misc/lv_color.h"
 #include "screen.hpp"
 #include "screen_manager.hpp"
-#include "utils.hpp"
 
 #include <zmk/events/activity_state_changed.h>
 
 LOG_MODULE_REGISTER(display_app);
 
 K_SEM_DEFINE(flushStartSema, 0, 1);
+
+Screen* mainScreen;
+Screen* settingsScreen;
 
 int display_thread(void)
 {
@@ -46,11 +49,10 @@ int display_thread(void)
    ScreenManager& screenManager = ScreenManager::getScreenManager();
 
    //setup a simple screen with an animation and FPS label
-   auto screen = new Screen();
-   screen->elements.emplace_back(
-       new AnimatedImage(lv_area_t{0, 0, 319, 171}, "/NAND:/frame_", ".bin", 11));
+   mainScreen = new Screen();
+   mainScreen->elements.emplace_back(new AnimatedImage(lv_area_t{0, 0, 319, 171}, "/NAND:/frame_", ".bin", 11));
 
-   auto fpsLabel = new Label(lv_area_t{260, 160, 0, 0});
+   auto fpsLabel = new Label(lv_point_t{260, 160});
    fpsLabel->setDesc(
        [](lv_draw_label_dsc_t& desc)
        {
@@ -74,9 +76,25 @@ int display_thread(void)
 
           text = stream.str();
        });
-   screen->elements.emplace_back(fpsLabel);
+   mainScreen->elements.emplace_back(fpsLabel);
 
-   screenManager.setScreen(screen);
+   // setup settings screen for later
+   // settingsScreen = new Screen();
+   // settingsScreen->hasBackground = true;
+   // settingsScreen->backgroundColor = lv_color_white();
+
+   // auto myLabel = new Label(lv_point_t{100, 100});
+   // myLabel->setText("Hello!");
+   // myLabel->setDesc(
+   //     [](lv_draw_label_dsc_t& desc)
+   //     {
+   //        lv_draw_label_dsc_init(&desc);
+   //        desc.font = &lv_font_unscii_16;
+   //        desc.color = lv_color_black();
+   //     });
+   // settingsScreen->elements.emplace_back(myLabel);
+
+   screenManager.setScreen(mainScreen);
 
    screenManager.loop();
 
