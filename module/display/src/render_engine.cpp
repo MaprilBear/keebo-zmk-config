@@ -2,6 +2,7 @@
 #include <lvgl.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <cstring>
 
 #include "misc/lv_color.h"
 #include "screen.hpp"

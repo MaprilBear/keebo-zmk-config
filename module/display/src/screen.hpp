@@ -11,17 +11,19 @@
 struct Screen final
 {
     std::vector<CanvasObject*> elements{};
-    lv_color_t backgroundColor;
+    lv_color_t backgroundColor{};
     bool hasBackground = false;
 
-   void tick()
+   bool tick()
    {
+      bool updated = false;
       for (auto& elem : elements)
       {
          if (elem != nullptr)
          {
-            elem->tick();
+            updated |= elem->tick();
          }
       }
+      return updated;
    }
 };

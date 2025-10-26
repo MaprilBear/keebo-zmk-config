@@ -67,14 +67,18 @@ int display_thread(void)
           static std::uint32_t fps = 0;
 
           uint32_t frame_time = k_cycle_get_32();
-          fps = 1000 / k_cyc_to_ms_floor32(frame_time - last_frame_time);
+          std::uint32_t newFps = 1000 / k_cyc_to_ms_floor32(frame_time - last_frame_time);
           last_frame_time = frame_time;
 
-          std::stringstream stream;
+          std::stringstream stream{};
           stream << std::setfill('0') << std::setw(2);
-          stream << std::to_string(fps) << " FPS";
+          stream << std::to_string(newFps) << " FPS\0";
 
           text = stream.str();
+
+          bool ret = (newFps != fps);
+          fps = newFps;
+          return ret;
        });
    mainScreen->elements.emplace_back(fpsLabel);
 
@@ -126,6 +130,7 @@ static int display_activity_listener(const zmk_event_t* eh)
 ZMK_LISTENER(activity, display_activity_listener);
 ZMK_SUBSCRIPTION(activity, zmk_activity_state_changed);
 
+// not thread safe :)
 extern "C" void switchScreensC()
 {
    LOG_INF("I'm in C++ land!");
@@ -139,27 +144,6 @@ extern "C" void switchScreensC()
    else
    {
       screenManager.setScreen(mainScreen);
-   }
-}
-
-extern struct k_sem screenSwitchSema;
-
-void switchScreens(){
-   while(1)
-   {
-      k_sem_take(&screenSwitchSema, K_FOREVER);
-
-      LOG_INF("IM SWITCHING SCREENS!");
-      // auto& screenManager = ScreenManager::getScreenManager();
-
-      // if (screenManager.getScreen() == mainScreen)
-      // {
-      //    screenManager.setScreen(settingsScreen);
-      // }
-      // else
-      // {
-      //    screenManager.setScreen(mainScreen);
-      // }
    }
 }
 

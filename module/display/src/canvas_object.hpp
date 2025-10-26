@@ -6,14 +6,14 @@
 class CanvasObject
 {
    protected:
-   lv_area_t coords;
+   lv_area_t coords{};
 
    public:
    CanvasObject(lv_area_t coords) : coords(coords)
    {
    }
 
-   virtual void tick() {}
+   virtual bool tick() { return false; }
    virtual void draw(MiniCanvas* canvas) {}
 
    bool inBounds(MiniCanvas* canvas)

@@ -5,5 +5,5 @@
 
 struct MiniCanvas : public lv_canvas_t
 {
-   std::uint8_t* canvasBuffer;
+   std::uint8_t* canvasBuffer{};
 };

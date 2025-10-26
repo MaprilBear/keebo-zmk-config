@@ -13,6 +13,11 @@ Image::Image(lv_area_t coords) : CanvasObject(coords)
 
 void Image::draw(MiniCanvas* canvas)
 {
+   if (canvas == nullptr)
+   {
+      LOG_ERR("Canvas is null");
+      return;
+   }
    if (!inBounds(canvas))
    {
       LOG_INF("Image is not in bounds of the canvas, skipping...");
@@ -87,7 +92,7 @@ void Image::draw(MiniCanvas* canvas)
       lv_fs_seek(&file, filePos, LV_FS_SEEK_SET);
 
       std::uint32_t read_bytes = 0;
-      lv_fs_read(&file, &canvas->canvasBuffer[0], croppedSize, &read_bytes);
+      lv_fs_read(&file, canvas->canvasBuffer, croppedSize, &read_bytes);
       if (read_bytes != croppedSize)
       {
          LOG_ERR("Failed to read entire selection, only read %u bytes", read_bytes);

@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-#include "utils.hpp"
+#include "render_engine.hpp"
 #include <cstring>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
@@ -23,22 +23,22 @@ namespace
 
 } // namespace
 
-alignas(4) std::uint8_t ScreenManager::image_buffer[IMAGE_SIZE];
+alignas(4) std::uint8_t ScreenManager::image_buffer[IMAGE_SIZE] = {0};
 
 ScreenManager::ScreenManager()
 {
-   renderEngine = std::make_unique<RenderEngine>();
+   renderEngine = new RenderEngine();
 
    // Intialize our MiniCanvases
    lv_canvas_t* lvCanvas = reinterpret_cast<lv_canvas_t*>(lv_canvas_create(lv_scr_act()));
-   std::memcpy(&miniCanvas1, lvCanvas, sizeof(lv_canvas_t));
+   std::memcpy(static_cast<void*>(&miniCanvas1), lvCanvas, sizeof(lv_canvas_t));
    miniCanvas1.canvasBuffer = image_buffer;
    lv_canvas_set_buffer(reinterpret_cast<lv_obj_t*>(&miniCanvas1), miniCanvas1.canvasBuffer, SCREEN_WIDTH,
                         SCREEN_HEIGHT / 2, LV_IMG_CF_TRUE_COLOR);
    miniCanvas1.img.obj.coords = lv_area_t{0, 0, 319, 85};
 
    lvCanvas = reinterpret_cast<lv_canvas_t*>(lv_canvas_create(lv_scr_act()));
-   std::memcpy(&miniCanvas2, lvCanvas, sizeof(lv_canvas_t));
+   std::memcpy(static_cast<void*>(&miniCanvas2), lvCanvas, sizeof(lv_canvas_t));
    miniCanvas2.canvasBuffer = &image_buffer[SCREEN_WIDTH * (SCREEN_HEIGHT / 2) * 2];
    lv_canvas_set_buffer(reinterpret_cast<lv_obj_t*>(&miniCanvas2), miniCanvas2.canvasBuffer, SCREEN_WIDTH,
                         SCREEN_HEIGHT / 2, LV_IMG_CF_TRUE_COLOR);
@@ -51,13 +51,15 @@ ScreenManager::ScreenManager()
    display_desc.pitch = 0;
 }
 
-void ScreenManager::tick()
+bool ScreenManager::tick()
 {
    LOG_INF("tick!");
    if (currentScreen != nullptr)
    {
-      currentScreen->tick();
+      return currentScreen->tick();
    }
+
+   return false;
 }
 
 void ScreenManager::draw(MiniCanvas* canvas)
@@ -76,8 +78,19 @@ void ScreenManager::flush(MiniCanvas* canvas)
    // LOG_INF("Flushing complete!");
 }
 
+K_SEM_DEFINE(displayRefreshSema, 1, 1)
+
+void displayRefresh(struct k_timer* dummy)
+{
+   k_sem_give(&displayRefreshSema);
+}
+
+K_TIMER_DEFINE(displayTimer, displayRefresh, NULL);
+
 void ScreenManager::loop()
 {
+   k_timer_start(&displayTimer, K_MSEC(33), K_MSEC(33));
+
    while (1)
    {
       // Wait here until we've been resumed
@@ -85,15 +98,22 @@ void ScreenManager::loop()
          k_yield();
       }
 
-      tick();
+      LOG_INF("boop!");
 
-      k_sem_take(&readSema1, K_FOREVER);
-      draw(&miniCanvas1);
-      k_sem_give(&flushSema1);
+      k_sem_take(&displayRefreshSema, K_FOREVER);
 
-      k_sem_take(&readSema2, K_FOREVER);
-      draw(&miniCanvas2);
-      k_sem_give(&flushSema2);
+      // TODO RACE CONDITION!! screen changing is not thread safe
+      if (tick() || screenChanged){
+         screenChanged = false;
+
+         k_sem_take(&readSema1, K_FOREVER);
+         draw(&miniCanvas1);
+         k_sem_give(&flushSema1);
+
+         k_sem_take(&readSema2, K_FOREVER);
+         draw(&miniCanvas2);
+         k_sem_give(&flushSema2);
+      }
    }
 }
 

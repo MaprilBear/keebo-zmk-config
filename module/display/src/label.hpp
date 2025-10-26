@@ -9,9 +9,9 @@
 class Label : public CanvasObject
 {
    private:
-   lv_draw_label_dsc_t labelDesc;
-   std::string text;
-   std::function<void(lv_draw_label_dsc_t&, std::string&)> tickCallback;
+   lv_draw_label_dsc_t labelDesc{};
+   std::string text{};
+   std::function<bool(lv_draw_label_dsc_t&, std::string&)> tickCallback{};
 
    public:
    void setDesc(std::function<void(lv_draw_label_dsc_t& desc)> const& callback)
@@ -24,17 +24,19 @@ class Label : public CanvasObject
       text = str;
    }
 
-   void setTickCallback(std::function<void(lv_draw_label_dsc_t&, std::string&)> const& callback)
+   void setTickCallback(std::function<bool(lv_draw_label_dsc_t&, std::string&)> const& callback)
    {
       tickCallback = callback;
    }
 
-   void tick() override
+   bool tick() override
    {
       if (tickCallback)
       {
-         tickCallback(labelDesc, text);
+         return tickCallback(labelDesc, text);
       }
+
+      return false;
    }
 
    void draw(MiniCanvas* canvas) override

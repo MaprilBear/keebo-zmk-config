@@ -7,7 +7,7 @@
 class Image : public CanvasObject
 {
    protected:
-   lv_fs_file_t file;
+   lv_fs_file_t file{};
 
    public:
    Image(lv_area_t coords);

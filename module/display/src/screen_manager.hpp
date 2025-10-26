@@ -19,14 +19,15 @@ class ScreenManager
    static constexpr auto IMAGE_SIZE = SCREEN_WIDTH * SCREEN_HEIGHT * 2;
    alignas(4) static std::uint8_t image_buffer[IMAGE_SIZE];
    volatile bool running = true;
+   volatile bool screenChanged = false;
 
    static constexpr auto display_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_display));
-   std::unique_ptr<RenderEngine> renderEngine;
-   struct display_buffer_descriptor display_desc;
-   MiniCanvas miniCanvas1;
-   MiniCanvas miniCanvas2;
+   RenderEngine* renderEngine;
+   struct display_buffer_descriptor display_desc{};
+   MiniCanvas miniCanvas1{};
+   MiniCanvas miniCanvas2{};
 
-   Screen* currentScreen;
+   Screen* currentScreen = nullptr;
 
    ScreenManager();
 
@@ -40,7 +41,7 @@ class ScreenManager
    ScreenManager(ScreenManager const&) = delete;
    void operator=(ScreenManager const&) = delete;
 
-   void tick();
+   bool tick();
    void draw(MiniCanvas* canvas);
    void flush(MiniCanvas* canvas);
    void loop();
@@ -48,6 +49,7 @@ class ScreenManager
    void setScreen(Screen* screen)
    {
       currentScreen = screen;
+      screenChanged = true;
    }
 
    Screen* getScreen()

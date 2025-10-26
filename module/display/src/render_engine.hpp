@@ -13,7 +13,7 @@
 class RenderEngine
 {
    private:
-   lv_draw_label_dsc_t fps_label_dsc;
+   lv_draw_label_dsc_t fps_label_dsc{};
    lv_coord_t fpsX = 260;
    lv_coord_t fpsY = 160;
    std::uint16_t fps = 0;
