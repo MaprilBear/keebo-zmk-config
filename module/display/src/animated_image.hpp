@@ -6,8 +6,6 @@
 #include <string>
 #include <zephyr/fs/fs.h>
 
-#include LV_MEM_CUSTOM_INCLUDE
-
 class AnimatedImage final : public Image
 {
    private:

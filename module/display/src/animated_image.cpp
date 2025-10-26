@@ -8,6 +8,8 @@
 #include <string>
 #include <cstdint>
 
+#include LV_MEM_CUSTOM_INCLUDE
+
 LOG_MODULE_DECLARE(display_app);
 
 namespace

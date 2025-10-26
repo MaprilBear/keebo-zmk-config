@@ -7,13 +7,9 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/random/random.h>
 
-
-#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <utility>
-#include <vector>
-#include <string>
 
 #include "screen_manager.hpp"
 #include "animated_image.hpp"

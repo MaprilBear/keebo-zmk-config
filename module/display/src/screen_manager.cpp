@@ -19,7 +19,7 @@ namespace
    K_SEM_DEFINE(flushSema2, 0, 1);
 } // namespace
 
-std::uint8_t ScreenManager::image_buffer[IMAGE_SIZE];
+alignas(4) std::uint8_t ScreenManager::image_buffer[IMAGE_SIZE];
 
 ScreenManager::ScreenManager()
 {

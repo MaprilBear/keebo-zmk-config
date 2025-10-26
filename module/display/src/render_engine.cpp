@@ -5,7 +5,7 @@
 
 #include "canvas_object.hpp"
 
-// LOG_MODULE_DECLARE(display_app);
+LOG_MODULE_DECLARE(display_app);
 
 RenderEngine::RenderEngine() : canvasElements{}
 {
@@ -24,7 +24,7 @@ void RenderEngine::tick()
     // Process statistics
    uint32_t frame_time = k_cycle_get_32();
    fps = 1000 / k_cyc_to_ms_floor32(frame_time - last_frame_time);
-//    LOG_INF("Current FPS = %d, Elapsed time = %d", fps, k_cyc_to_ms_floor32(frame_time - last_frame_time));
+   LOG_INF("Current FPS = %d, Elapsed time = %d", fps, k_cyc_to_ms_floor32(frame_time - last_frame_time));
    last_frame_time = frame_time;
 
    for (auto& object : canvasElements)
@@ -35,11 +35,11 @@ void RenderEngine::tick()
 
 void RenderEngine::draw(MiniCanvas* canvas)
 {
-//    LOG_INF("Drawing canvas");
+   LOG_INF("Drawing canvas");
 
    for (auto& object : canvasElements)
    {
-    //   LOG_INF("Drawing canvas object");
+      LOG_INF("Drawing canvas object");
       object->draw(canvas);
    }
 
@@ -48,5 +48,5 @@ void RenderEngine::draw(MiniCanvas* canvas)
    lv_canvas_draw_text(reinterpret_cast<lv_obj_t*>(canvas), fpsX - canvas->img.obj.coords.x1,
                        fpsY - canvas->img.obj.coords.y1, 1000, &fps_label_dsc, buffer);
 
-//    LOG_INF("Finished drawing canvas");
+   LOG_INF("Finished drawing canvas");
 }
