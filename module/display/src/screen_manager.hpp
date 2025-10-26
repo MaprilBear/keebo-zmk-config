@@ -26,7 +26,7 @@ class ScreenManager
    MiniCanvas miniCanvas1;
    MiniCanvas miniCanvas2;
 
-   std::shared_ptr<Screen> currentScreen;
+   Screen* currentScreen;
 
    ScreenManager();
 
@@ -45,7 +45,7 @@ class ScreenManager
    void flush(MiniCanvas* canvas);
    void loop();
 
-   void setScreen(std::shared_ptr<Screen> screen)
+   void setScreen(Screen* screen)
    {
       currentScreen = screen;
    }

@@ -14,7 +14,6 @@ class RenderEngine
 {
    private:
    lv_draw_label_dsc_t fps_label_dsc;
-   std::vector<std::unique_ptr<CanvasObject>> canvasElements;
    lv_coord_t fpsX = 260;
    lv_coord_t fpsY = 160;
    std::uint16_t fps = 0;
@@ -22,8 +21,6 @@ class RenderEngine
 
    public:
    RenderEngine();
-
-   void addCanvasElement(std::unique_ptr<CanvasObject> object);
 
    void draw(Screen& screen, MiniCanvas* canvas);
 };

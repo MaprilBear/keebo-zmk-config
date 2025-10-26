@@ -53,12 +53,19 @@ ScreenManager::ScreenManager()
 
 void ScreenManager::tick()
 {
-   currentScreen->tick();
+   LOG_INF("tick!");
+   if (currentScreen != nullptr)
+   {
+      currentScreen->tick();
+   }
 }
 
 void ScreenManager::draw(MiniCanvas* canvas)
 {
-   renderEngine->draw(*currentScreen, canvas);
+   if (currentScreen != nullptr)
+   {
+      renderEngine->draw(*currentScreen, canvas);
+   }
 }
 
 void ScreenManager::flush(MiniCanvas* canvas)

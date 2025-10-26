@@ -9,13 +9,16 @@
 
 struct Screen final
 {
-    std::vector<std::unique_ptr<CanvasObject>> elements{};
+   std::vector<CanvasObject*> elements{};
 
-    void tick()
-    {
-        for (auto& elem : elements)
-        {
-           elem->tick();
-        }
-    }
+   void tick()
+   {
+      for (auto& elem : elements)
+      {
+         if (elem != nullptr)
+         {
+            elem->tick();
+         }
+      }
+   }
 };
