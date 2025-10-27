@@ -19,6 +19,12 @@
 #include "misc/lv_color.h"
 #include "screen.hpp"
 #include "screen_manager.hpp"
+#include "setting.hpp"
+
+// #include <zmk/rgb_underglow.h>
+
+#include <cmath>
+#include <cstdint>
 
 #include <zmk/events/activity_state_changed.h>
 
@@ -48,7 +54,7 @@ int display_thread(void)
 
    ScreenManager& screenManager = ScreenManager::getScreenManager();
 
-   //setup a simple screen with an animation and FPS label
+   // setup a simple screen with an animation and FPS label
    mainScreen = new Screen();
    mainScreen->elements.emplace_back(new AnimatedImage(lv_area_t{0, 0, 319, 171}, "/NAND:/frame_", ".bin", 11));
 
@@ -130,6 +136,12 @@ static int display_activity_listener(const zmk_event_t* eh)
 ZMK_LISTENER(activity, display_activity_listener);
 ZMK_SUBSCRIPTION(activity, zmk_activity_state_changed);
 
+extern "C" int zmk_rgb_underglow_change_brt(int direction);
+
+SliderSetting keyBrightnessSetting(CONFIG_ZMK_RGB_UNDERGLOW_BRT_START, CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX,
+                                   CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN,
+                                   [](std::int32_t delta) { zmk_rgb_underglow_change_brt(delta); });
+
 // not thread safe :)
 extern "C" void switchScreensC()
 {
@@ -145,6 +157,8 @@ extern "C" void switchScreensC()
    {
       screenManager.setScreen(mainScreen);
    }
+
+   keyBrightnessSetting.addDelta(1);
 }
 
 // K_THREAD_DEFINE(screen_switch_thread, 1024, switchScreens, NULL, NULL, NULL, 2, 0, 0);
