@@ -1,5 +1,6 @@
 #include <behaviors.dtsi>
 #include <dt-bindings/zmk/keys.h>
+#include <behaviors/app.dtsi>
 
 / {
     keymap {
@@ -7,12 +8,22 @@
 
         default_layer {
             bindings = <
-                &screen_switch &kp W &kp E
+                &app_macro APP_SETTINGS 1 &kp W &kp E
                 &kp A &kp S &kp D
                 &kp Z &kp X &kp C
             >;
 
             sensor-bindings = <&inc_dec_kp C_VOL_UP C_VOL_DN>;
+        };
+
+        app_layer {
+            bindings = <
+                &app_macro APP_MAIN 0 &app APP_A &app APP_B
+                &none &none &none
+                &none &none &none
+            >;
+
+            sensor-bindings = <&app_encoder>;
         };
     };
 
@@ -22,13 +33,6 @@
             timeout-ms = <50>;
             key-positions = <0 2 6 8>;
             bindings = <&bootloader>;
-        };
-    };
-
-    behaviors {
-        screen_switch: screen_switch {
-            compatible = "zmk,behavior-screen-switch";
-            #binding-cells = <0>;
         };
     };
 };

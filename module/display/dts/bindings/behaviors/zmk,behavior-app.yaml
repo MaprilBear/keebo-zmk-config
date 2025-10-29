@@ -1,0 +1,13 @@
+description: App Behavior
+
+compatible: "zmk,behavior-app"
+
+include: one_param.yaml
+
+properties:
+  bindings:
+      type: phandle-array
+      required: true
+  placeholder:
+    type: boolean
+    required: false

@@ -1,0 +1,42 @@
+/*
+ * Copyright (c) 2020 The ZMK Contributors
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
+#include <dt-bindings/zmk/behaviors.h>
+#include <dt-bindings/app_keys.h>
+#include <dt-bindings/zmk/rgb.h>
+
+/ {
+    behaviors {
+        app: app {
+            compatible = "zmk,behavior-app";
+            #binding-cells = <1>;
+            display-name = "App Key";
+            bindings
+                = <&rgb_ug RGB_BRI>
+                , <&rgb_ug RGB_BRD>
+                ;
+        };
+
+        app_encoder: app_encoder {
+            compatible = "zmk,behavior-sensor-rotate";
+            #sensor-binding-cells = <0>;
+            bindings = <&app APP_INC>, <&app APP_DEC>;
+        };
+    };
+
+    macros {
+        app_macro: app_macro {
+            compatible = "zmk,behavior-macro-two-param";
+            #binding-cells = <2>;
+            bindings
+                = <&macro_param_1to1>
+                , <&app MACRO_PLACEHOLDER>
+                , <&macro_param_2to1>
+                , <&to MACRO_PLACEHOLDER>
+                ;
+        };
+    };
+};

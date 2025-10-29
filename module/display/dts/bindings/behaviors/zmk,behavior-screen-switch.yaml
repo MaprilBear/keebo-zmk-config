@@ -1,5 +1,0 @@
-description: Screen Switch Behavior
-
-compatible: "zmk,behavior-screen-switch"
-
-include: zero_param.yaml

@@ -53,7 +53,6 @@ ScreenManager::ScreenManager()
 
 bool ScreenManager::tick()
 {
-   LOG_INF("tick!");
    if (currentScreen != nullptr)
    {
       return currentScreen->tick();
@@ -97,8 +96,6 @@ void ScreenManager::loop()
       while (!running){
          k_yield();
       }
-
-      LOG_INF("boop!");
 
       k_sem_take(&displayRefreshSema, K_FOREVER);
 

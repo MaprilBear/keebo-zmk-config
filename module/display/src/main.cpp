@@ -21,12 +21,16 @@
 #include "screen_manager.hpp"
 #include "setting.hpp"
 
+#include <dt-bindings/app_keys.h>
+
 // #include <zmk/rgb_underglow.h>
 
 #include <cmath>
 #include <cstdint>
 
+#include <zmk/behavior.h>
 #include <zmk/events/activity_state_changed.h>
+
 
 LOG_MODULE_REGISTER(display_app);
 
@@ -138,27 +142,54 @@ ZMK_SUBSCRIPTION(activity, zmk_activity_state_changed);
 
 extern "C" int zmk_rgb_underglow_change_brt(int direction);
 
+extern "C" void invokeBinding(int num);
+
 SliderSetting keyBrightnessSetting(CONFIG_ZMK_RGB_UNDERGLOW_BRT_START, CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX,
                                    CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN,
-                                   [](std::int32_t delta) { zmk_rgb_underglow_change_brt(delta); });
+                                   [](std::int32_t delta)
+                                   {
+                                       for (int i = 0; i < std::abs(delta); i++)
+                                       {
+                                          invokeBinding(delta > 0 ? APP_RGB_BRI : APP_RGB_BRD);
+                                       }
+                                   });
 
 // not thread safe :)
-extern "C" void switchScreensC()
+extern "C" void switchScreensC(int screenNum)
 {
    LOG_INF("I'm in C++ land!");
 
    auto& screenManager = ScreenManager::getScreenManager();
 
-   if (screenManager.getScreen() == mainScreen)
+   switch (screenNum)
    {
-      screenManager.setScreen(settingsScreen);
+      case 0:
+         screenManager.setScreen(mainScreen);
+         break;
+      case 1:
+         screenManager.setScreen(settingsScreen);
+         break;
    }
-   else
+}
+
+extern "C" void processKeyPress(int key)
+{
+   auto& screenManager = ScreenManager::getScreenManager();
+
+   if (screenManager.getScreen() != settingsScreen)
    {
-      screenManager.setScreen(mainScreen);
+      return;
    }
 
-   keyBrightnessSetting.addDelta(1);
+   switch (key)
+   {
+      case APP_INC:
+         keyBrightnessSetting.addDelta(1);
+         break;
+      case APP_DEC:
+         keyBrightnessSetting.addDelta(-1);
+         break;
+   }
 }
 
 // K_THREAD_DEFINE(screen_switch_thread, 1024, switchScreens, NULL, NULL, NULL, 2, 0, 0);
