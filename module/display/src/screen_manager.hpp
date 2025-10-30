@@ -50,6 +50,7 @@ class ScreenManager
    {
       currentScreen = screen;
       screenChanged = true;
+      renderEngine->drawBackground = 2;
    }
 
    Screen* getScreen()

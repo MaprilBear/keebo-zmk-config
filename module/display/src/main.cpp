@@ -20,6 +20,7 @@
 #include "screen.hpp"
 #include "screen_manager.hpp"
 #include "setting.hpp"
+#include "slider.hpp"
 
 #include <dt-bindings/app_keys.h>
 
@@ -31,13 +32,26 @@
 #include <zmk/behavior.h>
 #include <zmk/events/activity_state_changed.h>
 
-
 LOG_MODULE_REGISTER(display_app);
+
+// Forward Declarations
+extern "C" void invokeBinding(int num);
 
 K_SEM_DEFINE(flushStartSema, 0, 1);
 
 Screen* mainScreen;
 Screen* settingsScreen;
+
+SliderSetting keyBrightnessSetting(CONFIG_ZMK_RGB_UNDERGLOW_BRT_START, CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX,
+                                   CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN,
+                                   [](std::int32_t delta)
+                                   {
+                                       std::int32_t ticks = std::abs(delta) / CONFIG_ZMK_RGB_UNDERGLOW_BRT_STEP;
+                                       for (int i = 0; i < ticks; i++)
+                                       {
+                                          invokeBinding(delta > 0 ? APP_RGB_BRI : APP_RGB_BRD);
+                                       }
+                                   });
 
 int display_thread(void)
 {
@@ -102,11 +116,24 @@ int display_thread(void)
    myLabel->setDesc(
        [](lv_draw_label_dsc_t& desc)
        {
-          lv_draw_label_dsc_init(&desc);
           desc.font = &lv_font_unscii_16;
           desc.color = lv_color_black();
        });
    settingsScreen->elements.emplace_back(myLabel);
+
+   auto mySlider = new Slider(lv_area_t{20, 20, 210, 40}, keyBrightnessSetting);
+   mySlider->setDesc([](lv_draw_rect_dsc_t& boundingDesc, lv_draw_rect_dsc_t& slideDesc){
+      boundingDesc.bg_color = lv_color_hex(0xAAAAAA); // Gray
+      boundingDesc.bg_opa = LV_OPA_100;
+
+      boundingDesc.outline_color = lv_color_black();
+      boundingDesc.outline_width = 3;
+      boundingDesc.outline_opa = LV_OPA_100;
+
+      slideDesc.bg_color = lv_color_hex(0x0096FF);
+      slideDesc.bg_opa = LV_OPA_100;
+   });
+   settingsScreen->elements.emplace_back(mySlider);
 
    screenManager.setScreen(mainScreen);
 
@@ -115,7 +142,7 @@ int display_thread(void)
    return 0;
 }
 
-K_THREAD_DEFINE(dsp_thread, 4096, display_thread, NULL, NULL, NULL, 2, 0, 0);
+K_THREAD_DEFINE(dsp_thread, 4096, display_thread, NULL, NULL, NULL, 3, 0, 0);
 
 // Hook into ZMK's activity event to pause the display when we enter idle
 // Eventually this would also shutoff the backlight, but right now the keypad doesn't have backlight controls :)
@@ -139,20 +166,6 @@ static int display_activity_listener(const zmk_event_t* eh)
 
 ZMK_LISTENER(activity, display_activity_listener);
 ZMK_SUBSCRIPTION(activity, zmk_activity_state_changed);
-
-extern "C" int zmk_rgb_underglow_change_brt(int direction);
-
-extern "C" void invokeBinding(int num);
-
-SliderSetting keyBrightnessSetting(CONFIG_ZMK_RGB_UNDERGLOW_BRT_START, CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX,
-                                   CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN,
-                                   [](std::int32_t delta)
-                                   {
-                                       for (int i = 0; i < std::abs(delta); i++)
-                                       {
-                                          invokeBinding(delta > 0 ? APP_RGB_BRI : APP_RGB_BRD);
-                                       }
-                                   });
 
 // not thread safe :)
 extern "C" void switchScreensC(int screenNum)
@@ -184,10 +197,10 @@ extern "C" void processKeyPress(int key)
    switch (key)
    {
       case APP_INC:
-         keyBrightnessSetting.addDelta(1);
+         keyBrightnessSetting.addDelta(CONFIG_ZMK_RGB_UNDERGLOW_BRT_STEP);
          break;
       case APP_DEC:
-         keyBrightnessSetting.addDelta(-1);
+         keyBrightnessSetting.addDelta(-CONFIG_ZMK_RGB_UNDERGLOW_BRT_STEP);
          break;
    }
 }

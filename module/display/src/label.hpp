@@ -47,5 +47,6 @@ class Label : public CanvasObject
 
    Label(lv_point_t coords) : CanvasObject(lv_area_t{coords.x, coords.y, 0, 0})
    {
+      lv_draw_label_dsc_init(&labelDesc);
    }
 };

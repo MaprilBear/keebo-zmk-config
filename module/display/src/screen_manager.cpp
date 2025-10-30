@@ -129,4 +129,4 @@ void ScreenManager::flushLoop()
    }
 }
 
-K_THREAD_DEFINE(flushing_thread, 2048, ScreenManager::flushLoop, NULL, NULL, NULL, 2, 0, 0);
+K_THREAD_DEFINE(flushing_thread, 2048, ScreenManager::flushLoop, NULL, NULL, NULL, 3, 0, 0);

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "zephyr/logging/log.h"
 #include <cstdint>
 #include <functional>
 
@@ -34,6 +35,7 @@ class SliderSetting : public Setting
    {
       std::int32_t newValue = clamp<std::int32_t>(value + delta, max, min);
       std::int32_t actualDelta = newValue - value;
+      LOG_PRINTK("\n\nCurrent Val: %d\n New Val: %d\n Actual Delta %d\n", value, newValue, actualDelta);
       callback(actualDelta);
       value = newValue;
    }
@@ -44,6 +46,21 @@ class SliderSetting : public Setting
       std::int32_t delta = newValue - value;
       callback(delta);
       value = newValue;
+   }
+
+   std::int32_t getValue()
+   {
+      return value;
+   }
+
+   std::int32_t getMax()
+   {
+      return max;
+   }
+
+   std::int32_t getMin()
+   {
+      return min;
    }
 };
 

@@ -20,6 +20,8 @@ class RenderEngine
    std::uint32_t last_frame_time = 0;
 
    public:
+   std::uint8_t drawBackground = 0;
+
    RenderEngine();
 
    void draw(Screen& screen, MiniCanvas* canvas);

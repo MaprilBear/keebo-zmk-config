@@ -16,9 +16,10 @@ RenderEngine::RenderEngine()
 
 void RenderEngine::draw(Screen& screen, MiniCanvas* canvas)
 {
-   if (screen.hasBackground)
+   if (screen.hasBackground && drawBackground > 0)
    {
       lv_canvas_fill_bg(reinterpret_cast<lv_obj_t*>(canvas), screen.backgroundColor, LV_OPA_100);
+      drawBackground--;
    }
 
    for (auto& object : screen.elements)
