@@ -1,12 +1,11 @@
 #pragma once
 
-#include <utility>
-#include <memory>
+#include <lvgl.h>
 
-namespace std
+namespace Utils
 {
-   template <typename T, typename... Args> std::unique_ptr<T> make_unique(Args&&... args)
+   template <class T> constexpr T clamp(T val, T max, T min)
    {
-      return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+      return (val > max) ? max : ((val < min) ? min : val);
    }
 }

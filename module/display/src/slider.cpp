@@ -3,15 +3,9 @@
 #include "misc/lv_area.h"
 #include "widgets/lv_canvas.h"
 #include "zephyr/logging/log.h"
+#include "utils.hpp"
 
 LOG_MODULE_DECLARE(display_app);
-
-bool Slider::tick()
-{
-   bool retVal = setting.getValue() != oldValue;
-   oldValue = setting.getValue();
-   return retVal;
-}
 
 lv_area_t operator-(lv_area_t const& coord1, lv_area_t const& coord2)
 {
@@ -19,6 +13,14 @@ lv_area_t operator-(lv_area_t const& coord1, lv_area_t const& coord2)
    {
       coord1.x1 - coord2.x1, coord1.y1 - coord2.y1, coord1.x2 - coord2.x2, coord1.y2 - coord2.y2,
    };
+}
+
+
+bool Slider::tick()
+{
+   bool retVal = setting.getValue() != oldValue;
+   oldValue = setting.getValue();
+   return retVal;
 }
 
 void Slider::draw(MiniCanvas* canvas)

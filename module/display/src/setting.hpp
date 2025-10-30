@@ -3,17 +3,22 @@
 #include "zephyr/logging/log.h"
 #include <cstdint>
 #include <functional>
-
-namespace
-{
-   template <class T> constexpr T clamp(T val, T max, T min)
-   {
-      return (val > max) ? max : ((val < min) ? min : val);
-   }
-} // namespace
-
+#include "utils.hpp"
+#include <string>
 class Setting
 {
+   protected:
+   std::string name;
+
+   public:
+   Setting(std::string name) : name(name)
+   {
+   }
+
+   std::string getName()
+   {
+      return name;
+   }
 };
 
 class SliderSetting : public Setting
@@ -25,15 +30,15 @@ class SliderSetting : public Setting
    std::function<void(std::int32_t)> callback;
 
    public:
-   SliderSetting(std::int32_t start, std::int32_t max, std::int32_t min,
+   SliderSetting(std::string name, std::int32_t start, std::int32_t max, std::int32_t min,
                  std::function<void(std::int32_t)> const& callback)
-       : value(start), max(max), min(min), callback(callback)
+       : Setting(name), value(start), max(max), min(min), callback(callback)
    {
    }
 
    void addDelta(std::int32_t delta)
    {
-      std::int32_t newValue = clamp<std::int32_t>(value + delta, max, min);
+      std::int32_t newValue = Utils::clamp<std::int32_t>(value + delta, max, min);
       std::int32_t actualDelta = newValue - value;
       LOG_PRINTK("\n\nCurrent Val: %d\n New Val: %d\n Actual Delta %d\n", value, newValue, actualDelta);
       callback(actualDelta);
@@ -42,7 +47,7 @@ class SliderSetting : public Setting
 
    void setValue(std::int32_t val)
    {
-      std::int32_t newValue = clamp<std::int32_t>(val, max, min);
+      std::int32_t newValue = Utils::clamp<std::int32_t>(val, max, min);
       std::int32_t delta = newValue - value;
       callback(delta);
       value = newValue;
@@ -71,7 +76,7 @@ class ToggleSetting : public Setting
    std::function<void(bool)> callback;
 
    public:
-   ToggleSetting(bool start) : currentToggle(start)
+   ToggleSetting(std::string name, bool start) : Setting(name), currentToggle(start)
    {
    }
 

@@ -14,6 +14,7 @@
 
 #include "animated_image.hpp"
 #include "draw/lv_draw_label.h"
+#include "settings_panel.hpp"
 #include "label.hpp"
 #include "misc/lv_area.h"
 #include "misc/lv_color.h"
@@ -41,8 +42,9 @@ K_SEM_DEFINE(flushStartSema, 0, 1);
 
 Screen* mainScreen;
 Screen* settingsScreen;
+Screen* idleScreen;
 
-SliderSetting keyBrightnessSetting(CONFIG_ZMK_RGB_UNDERGLOW_BRT_START, CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX,
+SliderSetting keyBrightnessSetting("Key Brightness", CONFIG_ZMK_RGB_UNDERGLOW_BRT_START, CONFIG_ZMK_RGB_UNDERGLOW_BRT_MAX,
                                    CONFIG_ZMK_RGB_UNDERGLOW_BRT_MIN,
                                    [](std::int32_t delta)
                                    {
@@ -52,6 +54,8 @@ SliderSetting keyBrightnessSetting(CONFIG_ZMK_RGB_UNDERGLOW_BRT_START, CONFIG_ZM
                                           invokeBinding(delta > 0 ? APP_RGB_BRI : APP_RGB_BRD);
                                        }
                                    });
+
+ToggleSetting myToggleSetting("mmm toggle", true);
 
 int display_thread(void)
 {
@@ -71,6 +75,10 @@ int display_thread(void)
    display_blanking_off(display_dev);
 
    ScreenManager& screenManager = ScreenManager::getScreenManager();
+
+   idleScreen = new Screen();
+   idleScreen->hasBackground = true;
+   idleScreen->backgroundColor = lv_color_black();
 
    // setup a simple screen with an animation and FPS label
    mainScreen = new Screen();
@@ -121,19 +129,32 @@ int display_thread(void)
        });
    settingsScreen->elements.emplace_back(myLabel);
 
-   auto mySlider = new Slider(lv_area_t{20, 20, 210, 40}, keyBrightnessSetting);
+
+   auto settingsPanel = new SettingsPanel(lv_area_t{10,10,0,0});
+   settingsPanel->setDesc([](lv_draw_label_dsc_t& textDesc, lv_draw_label_dsc_t& hoveredTextDesc,
+                                   lv_draw_rect_dsc_t& hoveredBackgroundDesc)
+                                   {
+                                       textDesc.color = lv_color_black();
+                                       textDesc.font = &lv_font_unscii_8;
+
+                                       hoveredTextDesc.color = lv_color_white();
+                                       hoveredTextDesc.font = &lv_font_unscii_8;
+
+                                       hoveredBackgroundDesc.bg_color = lv_color_hex(0x89CFF0);
+                                   });
+
+   auto mySlider = new Slider(lv_area_t{20, 20, 160, 40}, keyBrightnessSetting);
    mySlider->setDesc([](lv_draw_rect_dsc_t& boundingDesc, lv_draw_rect_dsc_t& slideDesc){
-      boundingDesc.bg_color = lv_color_hex(0xAAAAAA); // Gray
-      boundingDesc.bg_opa = LV_OPA_100;
+      boundingDesc.bg_color = lv_color_hex(0x888888); // Gray
 
       boundingDesc.outline_color = lv_color_black();
       boundingDesc.outline_width = 3;
-      boundingDesc.outline_opa = LV_OPA_100;
 
       slideDesc.bg_color = lv_color_hex(0x0096FF);
-      slideDesc.bg_opa = LV_OPA_100;
    });
-   settingsScreen->elements.emplace_back(mySlider);
+   settingsPanel->addSetting(&keyBrightnessSetting, mySlider);
+   settingsPanel->addSetting(&keyBrightnessSetting, mySlider);
+   settingsScreen->elements.emplace_back(settingsPanel);
 
    screenManager.setScreen(mainScreen);
 
@@ -154,11 +175,11 @@ static int display_activity_listener(const zmk_event_t* eh)
    switch (stateChange->data.state)
    {
       case ZMK_ACTIVITY_ACTIVE:
-         ScreenManager::getScreenManager().resume();
+         ScreenManager::getScreenManager().setScreen(mainScreen);
          break;
       case ZMK_ACTIVITY_IDLE:
       case ZMK_ACTIVITY_SLEEP:
-         ScreenManager::getScreenManager().pause();
+         ScreenManager::getScreenManager().setScreen(idleScreen);
          break;
    }
    return 0;
