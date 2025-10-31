@@ -1,9 +1,0 @@
-menuconfig KSCAN_CUSTOM
-    bool "Custom kscan driver"
-
-if KSCAN_CUSTOM
-module = KSCAN_CUSTOM
-module-str = KSCAN_CUSTOM
-source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
-
-endif #PMW3610
